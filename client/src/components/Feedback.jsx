@@ -1,7 +1,7 @@
 // Small shared UI pieces: loading skeletons, empty/error/success states.
 
 export function Skeleton({ className = '' }) {
-  return <div className={`animate-pulse bg-gray-200 rounded-lg ${className}`} />;
+  return <div className={`animate-pulse bg-sage/30 rounded-lg ${className}`} />;
 }
 
 export function CardSkeletons({ count = 3 }) {
@@ -33,7 +33,7 @@ export function ErrorMessage({ message, onRetry }) {
 export function SuccessMessage({ message }) {
   if (!message) return null;
   return (
-    <div role="status" className="bg-teal-50 text-teal-700 text-sm px-4 py-3 rounded-lg">
+    <div role="status" className="bg-mint text-primary text-sm px-4 py-3 rounded-lg">
       {message}
     </div>
   );
@@ -50,11 +50,11 @@ export function EmptyState({ title, hint, children }) {
 }
 
 const STATUS_STYLES = {
-  applied: 'bg-indigo-100 text-indigo-700',
+  applied: 'bg-mint text-primary',
   interviewing: 'bg-amber-100 text-amber-700',
   offer: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
-  requested: 'bg-indigo-100 text-indigo-700',
+  requested: 'bg-mint text-primary',
   accepted: 'bg-green-100 text-green-700',
   declined: 'bg-red-100 text-red-700',
   referred: 'bg-teal-100 text-teal-700',

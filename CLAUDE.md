@@ -15,6 +15,7 @@ Two independent npm projects (no root package.json); run `npm install` in each:
 Server (from `server/`):
 - `npm run dev` (nodemon) / `npm start` — API on `PORT` (default 5000)
 - `npm run seed` — seeds 12 Companies + 48 Jobs. **Deletes all existing Companies and Jobs.** Safety guard (runs before connecting): only a local MongoDB (`localhost`/`127.0.0.1`) is allowed; a remote/Atlas URI is refused unless `SEED_ALLOW_REMOTE_DB=<exact db name>` is set *and* `--force` is passed; `NODE_ENV=production` is always refused; a non-empty DB also needs `--force`. A URI with no database name means MongoDB's default db `test`
+- `npm run seed:demo-jobs` — **additive** demo dataset: 26 companies and ~192 jobs (the original 48 jobs are kept and enriched in place with missing fields only; 144 new sample listings are added, keyed by `externalId` so reruns are no-ops). Never deletes or overwrites existing values, so saved jobs / applications / history stay valid. Dry run by default; `-- --apply` backs up `jobs`/`companies`/`counters` to `server/backups/` (verified, never overwritten) before writing and then creates the Job indexes. Same guard as the other scripts (local only; remote needs `SEED_ALLOW_REMOTE_DB=<exact db name>`; refuses `NODE_ENV=production`). Generated listings are flagged `source: 'demo'`; apply links are placeholders on `example.com`, never invented employer URLs
 - `npm run maintenance:orphan-saved-jobs` — finds SavedJob records whose Job was deleted. **Dry run by default** (reports saved-job orphans, and application orphans report-only; writes nothing). `-- --apply` deletes orphaned *saved jobs only*: it first writes a new timestamped, verified JSON backup to `server/backups/` (git-ignored; Extended JSON, restorable with `insertMany`), then re-checks each record is still orphaned right before deleting. Applications are never modified. Same guard principle as the seed script: refuses `NODE_ENV=production`, and refuses any non-local database unless `MAINTENANCE_ALLOW_REMOTE_DB=<exact db name>` is set (even for the dry run). Never runs automatically
 - `npm test` is a placeholder; there are no automated tests
 
@@ -40,13 +41,13 @@ AI Career Platform for job seekers: job discovery (search/filter/save), applicat
 
 All schemas use `timestamps: true`; relations are ObjectId refs, populated in controllers.
 
-- `User`: name, email (unique), bcrypt `password`, `role` (default `jobseeker`), `seekingRole`, `isReferrer`, `currentCompany`, `currentCompanyRole`
-- `Company`: name (unique), industry, location, description, website. `server.js` requires it explicitly so `populate('company')` always has the model registered.
-- `Job`: title, `company` (ref **Company**, not a string), city, jobDescription, `experienceLevel` enum `fresher|experienced`, `yearsRequired`, `postedBy` (ref User, never set by `createJob`)
+- `User`: name, email (unique), bcrypt `password`, `role` (default `jobseeker`), `seekingRole`, `isReferrer`, `currentCompany`, `currentCompanyRole`, optional recommendation preferences (`preferredLocation`, `preferredWorkMode`, `preferredEmploymentType`, `experienceYears`)
+- `Company`: name (unique), industry, location, description, website, logoUrl (optional; UI falls back to an initials tile), size. `server.js` requires it explicitly so `populate('company')` always has the model registered.
+- `Job`: original fields (title, `company` ref **Company**, city, jobDescription, `experienceLevel` fresher|experienced, `yearsRequired`, `postedBy`) plus additive, optional fields: `jobCode` (CN-000123, from the atomic `Counter` model), `source` (`demo|manual|api`), `externalId` (future live-data feed), `isActive`, `postedAt`, `country`, `employmentType` (full-time|part-time|contract|internship), `workMode` (onsite|hybrid|remote), `experienceMinYears/MaxYears`, `salaryMin/Max/Currency/Period` + derived `salaryMaxInr` (fixed demo FX rates in `utils/salary.js`, for comparing/sorting only), `skills`, `preferredSkills`, `responsibilities`, `requirements`, `education`, `applyUrl` (http(s) only). A `pre('validate')` hook derives experience/salary fields and assigns `jobCode`; admin updates use load+save so these stay in sync
 - `Resume`: user, fileName, `resumeText` (extracted text only; raw files are never stored)
 - `ResumeAnalysis`: user, resume, optional job, matchPercentage, missingSkills[], strengths[], suggestions[]
 - `CoverLetter`: user, job, resume, generatedText
-- `SavedJob` / `Application` (status enum `applied|interviewing|rejected|offer`): user + job; duplicates are prevented by a `findOne` check in the controller (no unique index)
+- `SavedJob`: user + job. `Application` (status enum `applied|interviewing|rejected|offer`): user + job + `appliedAt` + `applyMethod` (`external` = user confirmed applying via the employer link, `manual` = user recorded an application made elsewhere). Duplicates are prevented by a `findOne` check plus a unique (user, job) index on both
 - `Referral`: seeker, referrer (both User), message, status enum `requested|accepted|declined|referred`
 
 ## API surface (all under `/api`; everything except signup/login needs a Bearer token)
@@ -55,10 +56,10 @@ All schemas use `timestamps: true`; relations are ObjectId refs, populated in co
 |---|---|
 | `POST /auth/signup`, `POST /auth/login` | validated (name >=2, email format, password >=6); 409 on duplicate email, generic 401 on bad credentials; login returns `{token, user}` (7d JWT) |
 | `GET /auth/me`, `PUT /auth/profile` | profile fields: name, seekingRole, isReferrer, currentCompany, currentCompanyRole (company required for referrers), optional `currentPassword`+`newPassword`. User objects never contain the password hash |
-| `GET /jobs` | filters `title`, `city`, `experienceLevel`; pagination `page`, `limit` (max 50) -> `{jobs, count, total, page, pages}`; `GET /jobs/:id` |
-| `POST /jobs`, `PUT/DELETE /jobs/:id` | admin only; validated; `company` must be an existing Company id; sets `postedBy` |
+| `GET /jobs` | search + filters + sorting + pagination, one aggregation pipeline: `q` (every word must match title, skills, company, city, job ID, work mode or type; relevance-ranked), `city`, `experience` (`fresher|entry|1-2|2-4|4-6|6-10|10+` = range overlap), `workMode` / `employmentType` (comma lists), `minSalaryLpa`, `sort` (`relevance|newest|salary-high|salary-low|experience-low`), `page`, `limit` (max 50); legacy `title` / `experienceLevel` still work -> `{jobs (company populated), count, total, page, pages}`. `GET /jobs/meta` (filter options: cities, types, modes, top skills, counts), `GET /jobs/recommended?limit=` (rule-based, see below), `GET /jobs/:id`. Fixed paths are declared before `/:id` |
+| `POST /jobs`, `PUT/DELETE /jobs/:id` | admin only; validated (incl. `applyUrl` must be http(s), salary/experience ranges, enums); `company` must be an existing Company id; sets `postedBy`; `source` defaults to `manual` |
 | `POST /saved-jobs`, `GET /saved-jobs/:userId`, `DELETE /saved-jobs/:jobId` | unsave takes the **job** id. `GET` is read-only: saved entries whose job no longer exists are omitted from the response (shape unchanged) but **never deleted** by a read. Orphans are removed only by the maintenance script (see Commands) |
-| `POST /applications`, `GET /applications/:userId`, `PUT/DELETE /applications/:id` | PUT `{status}` in applied/interviewing/rejected/offer; unique index on (user, job) |
+| `POST /applications`, `GET /applications/:userId`, `PUT/DELETE /applications/:id` | POST `{jobId, applyMethod?: external\|manual, appliedAt?}` (date can't be in the future) — the client only calls it **after the user confirms** they applied. PUT `{status}` in applied/interviewing/rejected/offer; unique index on (user, job) |
 | `GET/POST /resumes` | list own resumes (id, fileName, createdAt) / upload |
 | `POST/GET /resume-analysis`, `GET /resume-analysis/:id` | `{resumeId, jobId?}`; GET lists own history (newest first, max 50) |
 | `POST/GET /cover-letters`, `GET /cover-letters/:id` | `{resumeId, jobId}`; history |
@@ -66,9 +67,17 @@ All schemas use `timestamps: true`; relations are ObjectId refs, populated in co
 
 Controllers: validate input, query with ownership filters, respond `{message, ...data}`, forward errors with `next(error)`. Lists return `{count, <plural>}`.
 
+## Jobs feature notes
+
+- **Recommendations are rule-based, not AI.** `GET /jobs/recommended` scores active jobs (excluding ones the user applied to) on: target role (`User.seekingRole`) vs job title (up to 40), skills from the user's latest resume matched against job skills (up to 40), experience fit (10), preferred city (10), work mode (5), employment type (5). Each result carries `matchScore` and human-readable `matchReasons`. With no usable profile signal it returns the latest jobs with `personalized: false` and says so; the UI labels the two cases "Matched to your profile" vs "Latest jobs".
+- **Apply workflow** (`client/src/components/ApplyFlow.jsx`): with an `applyUrl` it opens the employer page in a new tab and then asks "Did you complete your application?"; the application is recorded (`applyMethod: external`) only when the user confirms. Without a link it states that plainly and offers an explicit "I applied elsewhere" manual entry (`applyMethod: manual`, with a date). Clicking Apply alone never writes anything. The Dashboard's saved-job button links to the job page instead of applying.
+- **Demo data**: all generated listings are `source: 'demo'` and the UI shows a "Demo" badge and a disclaimer; they are not verified live vacancies. `externalId` + `source: 'api'` are the hooks for a future live-data integration.
+
 ## Client structure
 
 Routes: `/` (redirects), `/login`, `/signup` (public; logged-in users are bounced to `/home`); protected: `/home`, `/jobs`, `/jobs/:id` (JobDetails), `/dashboard`, `/resume`, `/cover-letter`, `/referrals` (tabs: find / my requests / incoming), `/about`, `/profile` (editable, includes "register as referrer"); `*` renders a 404. Navbar uses `NavLink` active highlighting. `?job=<id>` on `/resume` and `/cover-letter` preselects a job (linked from JobDetails). `ResumeUpload` keeps the chosen resume id in `localStorage.resumeId`, validated against `GET /resumes` on load.
+
+Jobs UI: `pages/Jobs.jsx` is driven entirely by URL params (`q, city, experience, workMode, employmentType, minSalaryLpa, sort, page, view=saved`) so refresh, Back and shared links work; `JobCard`, `Pagination`, `HeroArt`, `CompanyLogo` (initials tile; real third-party logos are not bundled), `Icons` (inline SVG, no icon library) live in `components/`; formatting helpers in `utils/jobs.js`. Theme: the CareerNest green palette (#051F20 #0B2B26 #163832 #235347 #8EB69B #DAF1DE) is set as tokens in `src/index.css` (`primary`, `accent`, `bg`, `charcoal`, plus `ink`, `forest`, `sage`, `mint`), so every page shares it; headings use the Fraunces display font (Google Fonts, with a Georgia fallback).
 
 ## Known gaps / gotchas
 

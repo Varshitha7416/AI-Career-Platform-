@@ -8,6 +8,20 @@ const applyToJob = async (req, res, next) => {
     const { jobId } = req.body;
     const userId = req.user.id;
 
+    // 'external' = the user applied through the employer's own link and is confirming it;
+    // 'manual'   = the user is recording an application made somewhere else.
+    const applyMethod = req.body.applyMethod === undefined ? 'manual' : req.body.applyMethod;
+    if (!['external', 'manual'].includes(applyMethod)) {
+      return res.status(400).json({ message: 'applyMethod must be external or manual' });
+    }
+    let appliedAt = new Date();
+    if (req.body.appliedAt !== undefined && req.body.appliedAt !== null && req.body.appliedAt !== '') {
+      appliedAt = new Date(req.body.appliedAt);
+      if (Number.isNaN(appliedAt.getTime()) || appliedAt.getTime() > Date.now() + 60 * 1000) {
+        return res.status(400).json({ message: 'Applied date must be a valid date that is not in the future' });
+      }
+    }
+
     const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: 'Job not found or no longer available' });
 
@@ -16,7 +30,7 @@ const applyToJob = async (req, res, next) => {
       return res.status(400).json({ message: 'Already applied to this job' });
     }
 
-    const application = await Application.create({ user: userId, job: jobId });
+    const application = await Application.create({ user: userId, job: jobId, applyMethod, appliedAt });
     res.status(201).json({ message: 'Application submitted', application });
   } catch (error) {
     next(error);

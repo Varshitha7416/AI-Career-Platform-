@@ -29,6 +29,10 @@ function Profile() {
           isReferrer: u.isReferrer,
           currentCompany: u.currentCompany || '',
           currentCompanyRole: u.currentCompanyRole || '',
+          preferredLocation: u.preferredLocation || '',
+          preferredWorkMode: u.preferredWorkMode || '',
+          preferredEmploymentType: u.preferredEmploymentType || '',
+          experienceYears: u.experienceYears ?? '',
         });
         updateStoredUser(u);
       })
@@ -45,6 +49,7 @@ function Profile() {
 
     if (form.name.trim().length < 2) return setError('Name must be at least 2 characters.');
     if (form.isReferrer && !form.currentCompany.trim()) return setError('Enter your company to register as a referrer.');
+    if (form.experienceYears !== '' && (Number(form.experienceYears) < 0 || Number(form.experienceYears) > 50)) return setError('Experience must be between 0 and 50 years.');
     if (newPassword && newPassword.length < 6) return setError('New password must be at least 6 characters.');
 
     setSaving(true);
@@ -97,9 +102,33 @@ function Profile() {
               <input type="text" value={form.seekingRole} onChange={set('seekingRole')} placeholder="e.g. Frontend Developer" className={`${inputClass} mt-1 font-normal`} />
             </label>
 
+            <div className="border-t border-gray-100 pt-4 grid gap-3">
+              <div>
+                <p className="text-sm font-medium text-charcoal">Job preferences</p>
+                <p className="text-xs text-gray-500">Used to match Recommended Jobs (simple rule-based matching, not AI). All optional.</p>
+              </div>
+              <input type="text" value={form.preferredLocation} onChange={set('preferredLocation')} placeholder="Preferred city (e.g. Bangalore)" aria-label="Preferred city" className={inputClass} />
+              <div className="grid grid-cols-2 gap-3">
+                <select value={form.preferredWorkMode} onChange={set('preferredWorkMode')} aria-label="Preferred work mode" className={inputClass}>
+                  <option value="">Any work mode</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">Onsite</option>
+                </select>
+                <select value={form.preferredEmploymentType} onChange={set('preferredEmploymentType')} aria-label="Preferred employment type" className={inputClass}>
+                  <option value="">Any type</option>
+                  <option value="full-time">Full-time</option>
+                  <option value="part-time">Part-time</option>
+                  <option value="contract">Contract</option>
+                  <option value="internship">Internship</option>
+                </select>
+              </div>
+              <input type="number" min="0" max="50" step="0.5" value={form.experienceYears} onChange={set('experienceYears')} placeholder="Years of experience (0 for fresher)" aria-label="Years of experience" className={inputClass} />
+            </div>
+
             <div className="border-t border-gray-100 pt-4">
               <label className="flex items-center gap-2 text-sm font-medium text-charcoal">
-                <input type="checkbox" checked={form.isReferrer} onChange={set('isReferrer')} className="w-4 h-4 accent-indigo-600" />
+                <input type="checkbox" checked={form.isReferrer} onChange={set('isReferrer')} className="w-4 h-4 accent-emerald-800" />
                 I can refer job seekers at my company
               </label>
               <div className="grid gap-3 mt-3">

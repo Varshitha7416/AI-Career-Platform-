@@ -11,6 +11,13 @@ export default function useJobActions() {
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
   const [busyId, setBusyId] = useState(null);
 
+  // Toasts dismiss themselves so stale messages don't linger.
+  useEffect(() => {
+    if (!feedback) return undefined;
+    const t = setTimeout(() => setFeedback(null), 4500);
+    return () => clearTimeout(t);
+  }, [feedback]);
+
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -55,15 +62,18 @@ export default function useJobActions() {
     }
   }, [savedIds]);
 
-  const apply = useCallback(async (jobId) => {
+  // Records an application the user has CONFIRMED (payload: { applyMethod, appliedAt }). Returns the saved record or null.
+  const apply = useCallback(async (jobId, payload = {}) => {
     setFeedback(null);
     setBusyId(jobId);
     try {
-      await axiosClient.post('/applications', { jobId });
+      const res = await axiosClient.post('/applications', { jobId, ...payload });
       setAppliedIds((prev) => new Set(prev).add(jobId));
-      setFeedback({ type: 'success', text: 'Application tracked! You can follow it on your Dashboard.' });
+      setFeedback({ type: 'success', text: 'Application added to your tracker. You can follow it on your Dashboard.' });
+      return res.data.application;
     } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err, 'Could not apply') });
+      setFeedback({ type: 'error', text: getErrorMessage(err, 'Could not record the application') });
+      return null;
     } finally {
       setBusyId(null);
     }

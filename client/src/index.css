@@ -1,10 +1,34 @@
 @import "tailwindcss";
 
-
+/* CareerNest palette: #051F20 #0B2B26 #163832 #235347 #8EB69B #DAF1DE
+   Existing pages use primary / accent / bg / charcoal, so re-pointing those tokens re-themes the whole app. */
 @theme {
-  --color-primary: #4338CA;
-  --color-primary-dark: #3730A3;
-  --color-accent: #14B8A6;
-  --color-bg: #F5F1E8;
-  --color-charcoal: #1E293B;
+  --color-ink: #051F20;
+  --color-forest: #0B2B26;
+  --color-primary: #163832;
+  --color-primary-dark: #0B2B26;
+  --color-accent: #235347;
+  --color-sage: #8EB69B;
+  --color-mint: #DAF1DE;
+  --color-bg: #F1F8F3;
+  --color-charcoal: #051F20;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-charcoal);
+}
+
+/* Soft hero background used on the Jobs pages */
+.hero-bg {
+  background:
+    radial-gradient(1200px 400px at 85% -10%, rgba(142, 182, 155, 0.45), transparent 60%),
+    linear-gradient(180deg, #DAF1DE 0%, #E9F5EC 70%, #F1F8F3 100%);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

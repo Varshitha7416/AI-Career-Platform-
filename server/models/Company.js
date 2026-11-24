@@ -18,6 +18,12 @@ const companySchema = new mongoose.Schema({
   website: {
     type: String,
   },
+  logoUrl: {
+    type: String,
+  },
+  size: {
+    type: String,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Company', companySchema);

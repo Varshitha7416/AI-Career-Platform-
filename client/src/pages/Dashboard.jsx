@@ -41,17 +41,6 @@ function Dashboard() {
 
   const appliedJobIds = new Set(applications.map((a) => a.job._id));
 
-  const handleApply = async (jobId) => {
-    setFeedback(null);
-    try {
-      await axiosClient.post('/applications', { jobId });
-      setFeedback({ type: 'success', text: 'Application tracked.' });
-      fetchData();
-    } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err, 'Could not apply') });
-    }
-  };
-
   const handleUnsave = async (jobId) => {
     setFeedback(null);
     try {
@@ -112,13 +101,16 @@ function Dashboard() {
                       >
                         Unsave
                       </button>
-                      <button
-                        onClick={() => handleApply(saved.job._id)}
-                        disabled={appliedJobIds.has(saved.job._id)}
-                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark transition disabled:opacity-50"
-                      >
-                        {appliedJobIds.has(saved.job._id) ? 'Applied ✓' : 'Apply'}
-                      </button>
+                      {appliedJobIds.has(saved.job._id) ? (
+                        <span className="px-4 py-2 rounded-lg text-sm bg-mint text-primary">Applied ✓</span>
+                      ) : (
+                        <Link
+                          to={`/jobs/${saved.job._id}`}
+                          className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark transition"
+                        >
+                          View &amp; apply
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -129,7 +121,7 @@ function Dashboard() {
           <div className="max-w-3xl mx-auto">
             <h2 className="text-xl font-semibold text-charcoal mb-4">My Applications ({applications.length})</h2>
             {applications.length === 0 ? (
-              <EmptyState title="No applications yet" hint="Apply to a job and track its progress here." />
+              <EmptyState title="No applications yet" hint="Open a job, apply on the employer's page, then confirm it to track its progress here." />
             ) : (
               <div className="flex flex-col gap-4">
                 {applications.map((app) => (
@@ -139,7 +131,7 @@ function Dashboard() {
                         {app.job.title}
                       </Link>
                       <p className="text-primary font-medium">{app.job.company?.name}</p>
-                      <p className="text-xs text-gray-400">Applied {new Date(app.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">Applied {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}{app.applyMethod === 'external' ? ' · via employer link' : ''}</p>
                     </div>
                     <div className="shrink-0 flex items-center gap-3">
                       <StatusBadge status={app.status} />

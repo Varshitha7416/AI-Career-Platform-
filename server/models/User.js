@@ -31,6 +31,20 @@ const userSchema = new mongoose.Schema({
   currentCompanyRole: {
     type: String,
   },
+  // Optional job preferences used for recommendations
+  preferredLocation: {
+    type: String,
+  },
+  preferredWorkMode: {
+    type: String,
+  },
+  preferredEmploymentType: {
+    type: String,
+  },
+  experienceYears: {
+    type: Number,
+    min: 0,
+  },
   
 }, { timestamps: true });
 
