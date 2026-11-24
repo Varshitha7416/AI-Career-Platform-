@@ -1,64 +1,122 @@
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const { isEmail } = require('../middleware/validate');
 
-const signup = async (req, res) => {
+const publicUser = (u) => ({
+  id: u._id,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  seekingRole: u.seekingRole || '',
+  isReferrer: !!u.isReferrer,
+  currentCompany: u.currentCompany || '',
+  currentCompanyRole: u.currentCompanyRole || '',
+});
+
+// Promote the configured admin email (if any) so admin access needs no manual DB edits.
+const applyAdminEmail = async (user) => {
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (adminEmail && user.email === adminEmail && user.role !== 'admin') {
+    user.role = 'admin';
+    await user.save();
+  }
+};
+
+const signup = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+
+    if (name.length < 2) return res.status(400).json({ message: 'Name must be at least 2 characters' });
+    if (!isEmail(email)) return res.status(400).json({ message: 'Please enter a valid email address' });
+    if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(409).json({ message: 'An account with this email already exists' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await User.create({ name, email, password: hashedPassword });
+    await applyAdminEmail(newUser);
 
-    const newUser = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
-    res.status(201).json({ message: 'User created successfully', userId: newUser._id });
+    res.status(201).json({ message: 'Account created successfully', userId: newUser._id });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
-
-// const jwt = require('jsonwebtoken');
-
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = user ? await bcrypt.compare(password, user.password) : false;
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    await applyAdminEmail(user);
 
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: { id: user._id, name: user.name, email: user.email },
-    });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.status(200).json({ message: 'Login successful', token, user: publicUser(user) });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
+const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.status(200).json({ user: publicUser(user) });
+  } catch (error) {
+    next(error);
+  }
+};
 
+const updateProfile = async (req, res, next) => {
+  try {
+    const { name, seekingRole, isReferrer, currentCompany, currentCompanyRole, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-module.exports = { signup, login };
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (trimmed.length < 2) return res.status(400).json({ message: 'Name must be at least 2 characters' });
+      user.name = trimmed;
+    }
+    if (seekingRole !== undefined) user.seekingRole = String(seekingRole).trim();
+    if (currentCompany !== undefined) user.currentCompany = String(currentCompany).trim();
+    if (currentCompanyRole !== undefined) user.currentCompanyRole = String(currentCompanyRole).trim();
+    if (isReferrer !== undefined) user.isReferrer = Boolean(isReferrer);
+
+    if (user.isReferrer && !user.currentCompany) {
+      return res.status(400).json({ message: 'Company is required to register as a referrer' });
+    }
+
+    if (newPassword !== undefined && newPassword !== '') {
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters' });
+      }
+      const ok = await bcrypt.compare(String(currentPassword || ''), user.password);
+      if (!ok) return res.status(400).json({ message: 'Current password is incorrect' });
+      user.password = await bcrypt.hash(String(newPassword), 10);
+    }
+
+    await user.save();
+    res.status(200).json({ message: 'Profile updated', user: publicUser(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { signup, login, getMe, updateProfile };

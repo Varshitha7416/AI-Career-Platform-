@@ -6,8 +6,9 @@ const jobSchema = new mongoose.Schema({
     required: true,
   },
   company: {
-    type: String,
-    required: true,
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Company',
+  required: true,
   },
   city: {
     type: String,

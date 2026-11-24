@@ -1,13 +1,23 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { getUser, clearSession } from '../utils/auth';
+
+const links = [
+  { to: '/home', label: 'Home' },
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/resume', label: 'Resume AI' },
+  { to: '/cover-letter', label: 'Cover Letter' },
+  { to: '/referrals', label: 'Referrals' },
+  { to: '/about', label: 'About' },
+  { to: '/profile', label: 'Profile' },
+];
 
 function Navbar() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = getUser();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('resumeId');
+    clearSession();
     navigate('/login');
   };
 
@@ -17,12 +27,22 @@ function Navbar() {
         AI Career Platform
       </Link>
 
-      <div className="flex items-center gap-4 text-sm flex-wrap">
-        <Link to="/jobs" className="text-charcoal hover:text-primary transition">Jobs</Link>
-        <Link to="/dashboard" className="text-charcoal hover:text-primary transition">Dashboard</Link>
-        <Link to="/resume" className="text-charcoal hover:text-primary transition">Resume Analyzer</Link>
-        <Link to="/cover-letter" className="text-charcoal hover:text-primary transition">Cover Letter</Link>
-        <Link to="/referrals" className="text-charcoal hover:text-primary transition">Referrals</Link>
+      <div className="flex items-center gap-x-5 gap-y-2 text-sm flex-wrap">
+        {links.map((l) => (
+          <NavLink
+            key={l.to}
+            to={l.to}
+            className={({ isActive }) =>
+              `transition pb-0.5 border-b-2 ${
+                isActive
+                  ? 'text-primary font-semibold border-primary'
+                  : 'text-charcoal border-transparent hover:text-primary'
+              }`
+            }
+          >
+            {l.label}
+          </NavLink>
+        ))}
       </div>
 
       <div className="flex items-center gap-4">

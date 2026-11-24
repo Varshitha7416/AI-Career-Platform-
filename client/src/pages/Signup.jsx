@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import { isLoggedIn } from '../utils/auth';
+import { getErrorMessage } from '../utils/errors';
+import { ErrorMessage } from '../components/Feedback';
 
 function Signup() {
   const [name, setName] = useState('');
@@ -10,16 +13,22 @@ function Signup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  if (isLoggedIn()) return <Navigate to="/home" replace />;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    if (name.trim().length < 2) return setError('Name must be at least 2 characters.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Please enter a valid email address.');
+    if (password.length < 6) return setError('Password must be at least 6 characters.');
+
+    setLoading(true);
     try {
-      await axiosClient.post('/auth/signup', { name, email, password });
-      navigate('/login');
+      await axiosClient.post('/auth/signup', { name: name.trim(), email: email.trim(), password });
+      navigate('/login', { state: { signedUp: true } });
     } catch (err) {
-      setError(err.response?.data?.message || 'Signup failed');
+      setError(getErrorMessage(err, 'Signup failed'));
     } finally {
       setLoading(false);
     }
@@ -30,13 +39,9 @@ function Signup() {
       <div className="bg-white shadow-md rounded-xl p-8 w-full max-w-sm">
         <h2 className="text-2xl font-bold text-primary mb-6 text-center">Sign Up</h2>
 
-        {error && (
-          <p className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-md mb-4">
-            {error}
-          </p>
-        )}
+        {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
           <input
             type="text"
             placeholder="Full Name"
@@ -55,7 +60,7 @@ function Signup() {
           />
           <input
             type="password"
-            placeholder="Password"
+            placeholder="Password (min 6 characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
