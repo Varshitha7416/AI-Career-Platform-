@@ -10,7 +10,10 @@
     "seed:demo-jobs": "node scripts/seed-demo-jobs.js",
     "seed:programs": "node scripts/seed-programs.js",
     "maintenance:orphan-saved-jobs": "node scripts/cleanup-orphan-saved-jobs.js",
-    "test": "node --test tests/ai/*.test.js"
+    "migrate:referrals": "node scripts/migrateReferralStatuses.js",
+    "seed:referral-demo": "node scripts/seedReferralDemo.js",
+    "test": "node --test tests/ai/*.test.js",
+    "test:referrals": "node --test --test-concurrency=1 tests/referrals/*.test.js"
   },
   "keywords": [],
   "author": "",

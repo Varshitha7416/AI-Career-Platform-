@@ -159,7 +159,7 @@ const getOverview = async (req, res, next) => {
       const otherName = other?.name || 'someone';
       if (iAmReferrer) {
         events.push({ id: `referral:${r._id}:in`, type: 'referral_received', title: 'Referral request received', description: `From ${otherName}`, at: r.createdAt, status: r.status, company: null, link: '/referrals' });
-      } else if (r.status === 'requested') {
+      } else if (r.status === 'requested' || r.status === 'pending') { // 'requested' = legacy name of 'pending'
         events.push({ id: `referral:${r._id}:out`, type: 'referral_updated', title: 'Referral requested', description: `From ${otherName}${other?.currentCompany ? ` at ${other.currentCompany}` : ''}`, at: r.createdAt, status: r.status, company: null, link: '/referrals' });
       } else {
         events.push({ id: `referral:${r._id}:out`, type: 'referral_updated', title: `Referral ${r.status}`, description: `${otherName}${other?.currentCompany ? ` at ${other.currentCompany}` : ''}`, at: r.updatedAt, status: r.status, company: null, link: '/referrals' });

@@ -12,6 +12,7 @@ const publicUser = (u) => ({
   isReferrer: !!u.isReferrer,
   currentCompany: u.currentCompany || '',
   currentCompanyRole: u.currentCompanyRole || '',
+  referralCompanies: Array.isArray(u.referralCompanies) ? u.referralCompanies : [],
   preferredLocation: u.preferredLocation || '',
   preferredWorkMode: u.preferredWorkMode || '',
   preferredEmploymentType: u.preferredEmploymentType || '',
@@ -146,8 +147,27 @@ const updateProfile = async (req, res, next) => {
       }
     }
 
-    if (user.isReferrer && !user.currentCompany) {
-      return res.status(400).json({ message: 'Company is required to register as a referrer' });
+    // Companies the user can give referrals for (self-reported): <=10, each trimmed <=80, deduped (case-insensitive)
+    if (req.body.referralCompanies !== undefined) {
+      const raw = req.body.referralCompanies;
+      if (!Array.isArray(raw)) return res.status(400).json({ message: 'referralCompanies must be a list of company names' });
+      const seen = new Set();
+      const cleaned = [];
+      for (const item of raw) {
+        if (typeof item !== 'string') return res.status(400).json({ message: 'Each company name must be text' });
+        const c = item.trim();
+        if (!c) continue;
+        if (c.length > 80) return res.status(400).json({ message: 'Each company name must be 80 characters or fewer' });
+        if (seen.has(c.toLowerCase())) continue;
+        seen.add(c.toLowerCase());
+        cleaned.push(c);
+      }
+      if (cleaned.length > 10) return res.status(400).json({ message: 'You can list at most 10 companies' });
+      user.referralCompanies = cleaned;
+    }
+
+    if (user.isReferrer && !user.currentCompany && !(user.referralCompanies && user.referralCompanies.length)) {
+      return res.status(400).json({ message: 'Add your company (or at least one referral company) to register as a referrer' });
     }
 
     if (newPassword !== undefined && newPassword !== '') {

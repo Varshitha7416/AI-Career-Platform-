@@ -54,7 +54,9 @@ const STATUS_STYLES = {
   interviewing: 'bg-amber-100 text-amber-700',
   offer: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
-  requested: 'bg-mint text-primary',
+  requested: 'bg-amber-100 text-amber-700',
+  pending: 'bg-amber-100 text-amber-700',
+  withdrawn: 'bg-gray-100 text-gray-600',
   accepted: 'bg-green-100 text-green-700',
   declined: 'bg-red-100 text-red-700',
   referred: 'bg-teal-100 text-teal-700',
@@ -63,7 +65,7 @@ const STATUS_STYLES = {
 export function StatusBadge({ status }) {
   return (
     <span className={`text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-600'}`}>
-      {status}
+      {status === 'requested' ? 'pending' : status}
     </span>
   );
 }

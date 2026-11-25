@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema({
   currentCompany: {
     type: String,
   },
+  // Self-reported companies the user can give referrals for (<=10, trimmed, deduped)
+  referralCompanies: {
+    type: [String],
+    default: [],
+  },
   currentCompanyRole: {
     type: String,
   },

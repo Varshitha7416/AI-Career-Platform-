@@ -1,297 +1,193 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
-import { getUser } from '../utils/auth';
 import { getErrorMessage } from '../utils/errors';
-import { ErrorMessage, SuccessMessage, EmptyState, StatusBadge, CardSkeletons } from '../components/Feedback';
+import { ErrorMessage, SuccessMessage, Skeleton } from '../components/Feedback';
+import { ArrowRight } from '../components/dashboard/DashIcons';
+import { UsersIcon } from '../components/Icons';
+import ReferralArt from '../components/referrals/ReferralArt';
+import ReferralList from '../components/referrals/ReferralList';
+import StatusGuide from '../components/referrals/StatusGuide';
+import ActionConfirm from '../components/referrals/ActionConfirm';
+import useReferralList from '../components/referrals/useReferralList';
+import { STATUS_FILTERS } from '../components/referrals/referralUtils';
 
-const TABS = [
-  { key: 'find', label: 'Find referrers' },
-  { key: 'mine', label: 'My requests' },
-  { key: 'incoming', label: 'Incoming requests' },
-];
+function SendIcon({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5 21 3Z" />
+    </svg>
+  );
+}
+
+function InboxIcon({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4v8m0 0-3-3m3 3 3-3" />
+      <path d="M3.5 13h5l1.2 2.5h4.6L15.5 13h5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19v-6Z" />
+    </svg>
+  );
+}
+
+const two = (n) => String(n ?? 0).padStart(2, '0');
+
+function SummaryCard({ icon, title, count, hint, onClick, loading, active }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`focus-ring text-left w-full bg-white rounded-2xl border shadow-sm p-5 flex items-center gap-4 hover:border-primary transition ${active ? 'border-primary' : 'border-sage/30'}`}
+    >
+      <span className="w-14 h-14 shrink-0 rounded-full bg-mint text-primary flex items-center justify-center">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-ink">{title}</span>
+        {loading ? <Skeleton className="h-8 w-12 mt-1" /> : <span className="block font-display text-3xl font-bold text-primary leading-tight">{two(count)}</span>}
+      </span>
+      <span className="hidden sm:block self-stretch w-px bg-sage/40 mx-1" />
+      <span className="hidden sm:block text-sm text-ink/70 flex-1">{hint}</span>
+      <span className="ml-auto w-9 h-9 shrink-0 rounded-full bg-mint text-primary flex items-center justify-center"><ArrowRight size={16} /></span>
+    </button>
+  );
+}
 
 function Referrals() {
-  const [tab, setTab] = useState('find');
+  const [tab, setTab] = useState('sent');
+  const [status, setStatus] = useState('');
+  const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [pending, setPending] = useState(null); // { referral, action }
   const [feedback, setFeedback] = useState(null);
-  const user = getUser();
+  const listsRef = useRef(null);
 
-  // Find tab
-  const [company, setCompany] = useState('');
-  const [searchedCompany, setSearchedCompany] = useState('');
-  const [referrers, setReferrers] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [requestingFor, setRequestingFor] = useState(null); // referrer being messaged
-  const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
+  const sent = useReferralList('mine', status, refreshKey);
+  const received = useReferralList('incoming', status, refreshKey);
 
-  // Mine / incoming tabs
-  const [mine, setMine] = useState([]);
-  const [incoming, setIncoming] = useState([]);
-  const [listLoading, setListLoading] = useState(false);
-  const [listError, setListError] = useState('');
-
-  const loadLists = useCallback(async () => {
-    setListLoading(true);
-    setListError('');
+  const loadSummary = useCallback(async () => {
+    setSummaryError('');
     try {
-      const [mineRes, incomingRes] = await Promise.all([
-        axiosClient.get('/referrals/mine'),
-        axiosClient.get('/referrals/incoming'),
-      ]);
-      setMine(mineRes.data.referrals);
-      setIncoming(incomingRes.data.referrals);
+      const res = await axiosClient.get('/referrals/summary');
+      setSummary(res.data);
     } catch (err) {
-      setListError(getErrorMessage(err, 'Could not load referral requests'));
-    } finally {
-      setListLoading(false);
+      setSummaryError(getErrorMessage(err, 'Could not load your referral summary.'));
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- standard fetch-on-mount/params change
-    loadLists();
-  }, [loadLists]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount / after changes
+    loadSummary();
+  }, [loadSummary, refreshKey]);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    const q = company.trim();
-    if (!q) return;
-    setSearching(true);
-    setFeedback(null);
-    setRequestingFor(null);
-    try {
-      const response = await axiosClient.get('/referrals/find', { params: { company: q } });
-      setReferrers(response.data.referrers);
-      setSearchedCompany(q);
-    } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err, 'Search failed') });
-    } finally {
-      setSearching(false);
-    }
+  // Switching tabs: if the user has scrolled down the list, bring the list top back under the header.
+  const selectTab = (which) => {
+    setTab(which);
+    const top = listsRef.current?.getBoundingClientRect().top ?? 0;
+    if (top < 0) listsRef.current.scrollIntoView({ block: 'start' });
   };
 
-  const openRequest = (referrer) => {
-    setRequestingFor(referrer);
-    setMessage(`Hi ${referrer.name.split(' ')[0]}, I'm interested in opportunities at ${referrer.currentCompany} and would really appreciate a referral. Thank you!`);
-    setFeedback(null);
+  const focusList = (which) => {
+    setTab(which);
+    listsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const sendRequest = async () => {
-    if (!message.trim()) {
-      return setFeedback({ type: 'error', text: 'Please write a message.' });
-    }
-    setSending(true);
-    setFeedback(null);
-    try {
-      await axiosClient.post('/referrals', { referrerId: requestingFor._id, message: message.trim() });
-      setFeedback({ type: 'success', text: `Referral requested from ${requestingFor.name}!` });
-      setRequestingFor(null);
-      loadLists();
-    } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err, 'Request failed') });
-    } finally {
-      setSending(false);
-    }
+  const onDone = (_referral, message) => {
+    setPending(null);
+    setFeedback({ type: 'success', text: message });
+    setRefreshKey((k) => k + 1);
   };
-
-  const respond = async (id, status) => {
-    setFeedback(null);
-    try {
-      const res = await axiosClient.put(`/referrals/${id}`, { status });
-      setIncoming((prev) => prev.map((r) => (r._id === id ? { ...r, status: res.data.referral.status } : r)));
-      setFeedback({ type: 'success', text: `Request ${status}.` });
-    } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err, 'Could not update request') });
-    }
+  const onFail = (text) => {
+    setPending(null);
+    setFeedback({ type: 'error', text });
+    setRefreshKey((k) => k + 1);
   };
+  const askAction = (referral, action) => { setFeedback(null); setPending({ referral, action }); };
 
-  const pendingIncoming = incoming.filter((r) => r.status === 'requested').length;
+  const sentCount = summary?.sent?.all;
+  const receivedCount = summary?.received?.all;
+  const loadingSummary = !summary && !summaryError;
+
+  const tabCls = (key) => `focus-ring relative inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition ${tab === key ? 'border-primary text-primary' : 'border-transparent text-ink/70 hover:text-primary'}`;
+  const badge = (n) => (
+    <span className="min-w-5 px-1.5 h-5 inline-flex items-center justify-center rounded-full bg-accent text-white text-[11px] font-semibold">{n ?? '–'}</span>
+  );
 
   return (
-    <div className="min-h-screen bg-bg px-6 py-10">
-      <h1 className="text-3xl font-bold text-primary mb-6 text-center">Referrals</h1>
+    <div className="max-w-7xl mx-auto min-w-0 px-4 sm:px-6 py-6 flex flex-col gap-6">
+      <header>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-primary">Referrals</h1>
+        <p className="text-ink/70 mt-1">Connect, refer and grow together!</p>
+      </header>
 
-      <div className="max-w-xl mx-auto flex gap-2 mb-6 border-b border-gray-200">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setFeedback(null); }}
-            className={`px-4 py-2 text-sm -mb-px border-b-2 transition ${
-              tab === t.key ? 'border-primary text-primary font-semibold' : 'border-transparent text-charcoal hover:text-primary'
-            }`}
-          >
-            {t.label}
-            {t.key === 'incoming' && pendingIncoming > 0 && (
-              <span className="ml-2 text-xs bg-accent text-white rounded-full px-2 py-0.5">{pendingIncoming}</span>
-            )}
-          </button>
-        ))}
+      <section aria-labelledby="referral-banner" className="hero-bg rounded-2xl border border-sage/30 overflow-hidden grid md:grid-cols-[minmax(0,1fr)_320px] items-center">
+        <div className="p-6 sm:p-8">
+          <h2 id="referral-banner" className="font-display text-2xl sm:text-[1.7rem] font-bold text-primary leading-tight">Refer a friend. Help a fellow dreamer.</h2>
+          <p className="text-ink/75 mt-2 max-w-lg">Share opportunities and build a stronger community together.</p>
+          <Link to="/referrals/find" className="focus-ring mt-5 inline-flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition">
+            Find People to Refer <ArrowRight size={16} />
+          </Link>
+        </div>
+        <ReferralArt className="hidden md:block w-full h-auto self-end" />
+      </section>
+
+      {summaryError && <ErrorMessage message={summaryError} onRetry={loadSummary} />}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SummaryCard
+          icon={<SendIcon />} title="Sent Requests" count={sentCount} loading={loadingSummary}
+          hint="Requests you sent to others" onClick={() => focusList('sent')} active={tab === 'sent'}
+        />
+        <SummaryCard
+          icon={<InboxIcon />} title="Received Requests" count={receivedCount} loading={loadingSummary}
+          hint="Requests you received" onClick={() => focusList('received')} active={tab === 'received'}
+        />
       </div>
 
-      <div className="max-w-xl mx-auto mb-4 flex flex-col gap-3">
-        {feedback?.type === 'success' && <SuccessMessage message={feedback.text} />}
-        {feedback?.type === 'error' && <ErrorMessage message={feedback.text} />}
-      </div>
-
-      {tab === 'find' && (
-        <div className="max-w-xl mx-auto">
-          <form onSubmit={handleSearch} className="flex gap-3 mb-6">
-            <input
-              type="text"
-              placeholder="Search by company (e.g. Zoho)"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button
-              type="submit"
-              disabled={searching}
-              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
-            >
-              {searching ? 'Searching...' : 'Search'}
+      <section ref={listsRef} aria-label="Referral requests" className="bg-white rounded-2xl border border-sage/30 shadow-sm p-3 sm:p-4 scroll-mt-20">
+        <div className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-sage/30 mb-4 -mx-3 px-3 sm:-mx-4 sm:px-4 pt-2 -mt-2 sm:pt-2 bg-white rounded-t-2xl">
+          {/* Sticky under the top bar. Tabs switch lists below lg; on lg+ both lists show side by side and the active tab highlights its column. */}
+          <div role="tablist" aria-label="Request direction" className="flex">
+            <button type="button" role="tab" aria-selected={tab === 'sent'} onClick={() => selectTab('sent')} className={tabCls('sent')}>
+              <SendIcon size={16} /> Sent Requests {badge(sentCount)}
             </button>
-          </form>
+            <button type="button" role="tab" aria-selected={tab === 'received'} onClick={() => selectTab('received')} className={tabCls('received')}>
+              <UsersIcon size={16} /> Received Requests {badge(receivedCount)}
+            </button>
+          </div>
+          <label className="mb-2 inline-flex items-center">
+            <span className="sr-only">Filter by status</span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="focus-ring bg-white border border-sage/50 rounded-lg px-3 py-2 min-h-10 text-sm text-ink"
+            >
+              {STATUS_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+          </label>
+        </div>
 
-          <div className="flex flex-col gap-4">
-            {referrers.map((ref) => (
-              <div key={ref._id} className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex justify-between items-center gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-charcoal">{ref.name}</h3>
-                    <p className="text-sm text-gray-500">{ref.currentCompanyRole || 'Employee'} at {ref.currentCompany}</p>
-                  </div>
-                  {requestingFor?._id !== ref._id && (
-                    <button
-                      onClick={() => openRequest(ref)}
-                      className="shrink-0 bg-accent text-white px-4 py-2 rounded-lg text-sm hover:opacity-90 transition"
-                    >
-                      Request Referral
-                    </button>
-                  )}
-                </div>
-                {requestingFor?._id === ref._id && (
-                  <div className="mt-4">
-                    <label className="text-sm font-medium text-charcoal" htmlFor="ref-message">Your message</label>
-                    <textarea
-                      id="ref-message"
-                      rows={4}
-                      maxLength={1000}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={sendRequest}
-                        disabled={sending}
-                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark transition disabled:opacity-50"
-                      >
-                        {sending ? 'Sending...' : 'Send request'}
-                      </button>
-                      <button onClick={() => setRequestingFor(null)} className="border border-gray-300 px-4 py-2 rounded-lg text-sm">
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            {searchedCompany && referrers.length === 0 && !searching && (
-              <EmptyState
-                title={`No referrers found for "${searchedCompany}"`}
-                hint="Try a different spelling, or check back later."
-              />
-            )}
-            {!searchedCompany && (
-              <EmptyState
-                title="Search a company to find employees who offer referrals"
-                hint={user?.isReferrer ? undefined : 'Work somewhere? You can also offer referrals from your Profile.'}
-              >
-                {!user?.isReferrer && <Link to="/profile" className="text-primary underline text-sm">Become a referrer</Link>}
-              </EmptyState>
-            )}
+        {feedback?.type === 'success' && <div className="mb-3"><SuccessMessage message={feedback.text} /></div>}
+        {feedback?.type === 'error' && <div className="mb-3"><ErrorMessage message={feedback.text} /></div>}
+
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-start">
+          <div className={`min-w-0 lg:rounded-xl lg:outline-2 lg:outline-offset-4 ${tab === 'sent' ? 'lg:outline lg:outline-sage/40' : 'hidden lg:block'}`} role="tabpanel" aria-label="Sent requests">
+            <ReferralList kind="sent" list={sent} filtered={!!status} onAction={askAction} />
+          </div>
+          <div className={`min-w-0 lg:rounded-xl lg:outline-2 lg:outline-offset-4 ${tab === 'received' ? 'lg:outline lg:outline-sage/40' : 'hidden lg:block'}`} role="tabpanel" aria-label="Received requests">
+            <ReferralList kind="received" list={received} filtered={!!status} onAction={askAction} />
           </div>
         </div>
-      )}
+      </section>
 
-      {tab === 'mine' && (
-        <div className="max-w-xl mx-auto">
-          {listError && <ErrorMessage message={listError} onRetry={loadLists} />}
-          {listLoading ? (
-            <CardSkeletons count={2} />
-          ) : mine.length === 0 && !listError ? (
-            <EmptyState title="You haven't requested any referrals yet" hint="Search a company in the Find tab." />
-          ) : (
-            <div className="flex flex-col gap-4">
-              {mine.map((r) => (
-                <div key={r._id} className="bg-white rounded-xl shadow-sm p-5">
-                  <div className="flex justify-between items-start gap-3">
-                    <div>
-                      <h3 className="font-semibold text-charcoal">{r.referrer?.name || 'Unknown user'}</h3>
-                      <p className="text-sm text-gray-500">{r.referrer?.currentCompanyRole} {r.referrer?.currentCompany && `at ${r.referrer.currentCompany}`}</p>
-                    </div>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <p className="text-sm text-charcoal mt-3 whitespace-pre-line">{r.message}</p>
-                  <p className="text-xs text-gray-400 mt-2">Sent {new Date(r.createdAt).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <StatusGuide />
 
-      {tab === 'incoming' && (
-        <div className="max-w-xl mx-auto">
-          {!user?.isReferrer && incoming.length === 0 && !listLoading ? (
-            <EmptyState title="You're not registered as a referrer" hint="Add your company in your profile to receive referral requests.">
-              <Link to="/profile" className="text-primary underline text-sm">Go to Profile</Link>
-            </EmptyState>
-          ) : (
-            <>
-              {listError && <ErrorMessage message={listError} onRetry={loadLists} />}
-              {listLoading ? (
-                <CardSkeletons count={2} />
-              ) : incoming.length === 0 && !listError ? (
-                <EmptyState title="No incoming requests yet" hint="When someone asks you for a referral, it shows up here." />
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {incoming.map((r) => (
-                    <div key={r._id} className="bg-white rounded-xl shadow-sm p-5">
-                      <div className="flex justify-between items-start gap-3">
-                        <div>
-                          <h3 className="font-semibold text-charcoal">{r.seeker?.name || 'Unknown user'}</h3>
-                          {r.seeker?.seekingRole && <p className="text-sm text-gray-500">Looking for: {r.seeker.seekingRole}</p>}
-                        </div>
-                        <StatusBadge status={r.status} />
-                      </div>
-                      <p className="text-sm text-charcoal mt-3 whitespace-pre-line">{r.message}</p>
-                      <p className="text-xs text-gray-400 mt-2">Received {new Date(r.createdAt).toLocaleString()}</p>
-                      {r.status === 'requested' && (
-                        <div className="flex gap-2 mt-4">
-                          <button onClick={() => respond(r._id, 'accepted')} className="bg-accent text-white px-4 py-2 rounded-lg text-sm hover:opacity-90 transition">
-                            Accept
-                          </button>
-                          <button onClick={() => respond(r._id, 'declined')} className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm hover:bg-red-50 transition">
-                            Decline
-                          </button>
-                        </div>
-                      )}
-                      {r.status === 'accepted' && (
-                        <div className="mt-4">
-                          <button onClick={() => respond(r._id, 'referred')} className="border border-primary text-primary px-4 py-2 rounded-lg text-sm hover:bg-primary hover:text-white transition">
-                            Mark as referred
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      {pending && (
+        <ActionConfirm
+          referralId={pending.referral._id}
+          action={pending.action}
+          onCancel={() => setPending(null)}
+          onDone={onDone}
+          onFail={onFail}
+        />
       )}
     </div>
   );

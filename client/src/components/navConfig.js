@@ -55,10 +55,12 @@ const DETAIL_TITLES = {
   '/jobs/': 'Job Details',
   '/applications/': 'Application Details',
   '/programs/': 'Program Details',
+  '/referrals/': 'Referral Details',
 };
 
 export function pageTitleFor(pathname) {
   if (pathname === '/dashboard') return '';
+  if (pathname === '/referrals/find') return 'Find People';
   for (const [prefix, title] of Object.entries(DETAIL_TITLES)) {
     if (pathname.startsWith(prefix) && pathname.length > prefix.length) return title;
   }

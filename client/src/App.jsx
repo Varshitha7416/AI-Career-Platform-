@@ -16,6 +16,8 @@ import Contact from './pages/Contact';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
 import CoverLetter from './pages/CoverLetter';
 import Referrals from './pages/Referrals';
+import ReferralFind from './pages/ReferralFind';
+import ReferralDetails from './pages/ReferralDetails';
 import About from './pages/About';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -63,6 +65,8 @@ function App() {
         <Route path="/resume" element={<Protected><ResumeAnalyzer /></Protected>} />
         <Route path="/cover-letter" element={<Protected><CoverLetter /></Protected>} />
         <Route path="/referrals" element={<Protected><Referrals /></Protected>} />
+        <Route path="/referrals/find" element={<Protected><ReferralFind /></Protected>} />
+        <Route path="/referrals/:id" element={<Protected><ReferralDetails /></Protected>} />
         <Route path="/about" element={<Protected><About /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
         <Route path="*" element={<NotFound />} />

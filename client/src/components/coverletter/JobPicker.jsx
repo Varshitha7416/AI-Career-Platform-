@@ -24,7 +24,7 @@ function Retrieved({ job }) {
 }
 
 // Searchable CareerNest job picker. Selecting a job reports it via onPick (the form auto-fills its fields).
-export default function JobPicker({ jobId, onPick, onClear, onDetail }) {
+export default function JobPicker({ jobId, onPick, onClear, onDetail, label = 'Find a CareerNest job (optional)' }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -87,7 +87,7 @@ export default function JobPicker({ jobId, onPick, onClear, onDetail }) {
 
   return (
     <div ref={boxRef} className="relative">
-      <label htmlFor="cl-job-search" className="block text-xs font-medium text-ink/70 mb-1">Find a CareerNest job (optional)</label>
+      <label htmlFor="cl-job-search" className="block text-xs font-medium text-ink/70 mb-1">{label}</label>
       {current ? (
         <div className="flex items-center justify-between gap-3 border border-sage/50 rounded-xl px-3 py-2.5 bg-white">
           <span className="text-sm text-ink min-w-0 truncate">{current.title}{current.company?.name ? ` at ${current.company.name}` : ''}</span>
