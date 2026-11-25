@@ -4,11 +4,16 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+    trim: true,
+    maxlength: 80,
   },
   email: {
     type: String,
     required: true,
     unique: true,
+    lowercase: true,
+    trim: true,
+    maxlength: 254,
   },
   password: {
     type: String,
@@ -16,7 +21,17 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
+    enum: ['jobseeker', 'admin'],
     default: 'jobseeker',
+  },
+  // Bumped on password change; JWTs carry the version they were issued with (missing = 0) so older ones stop working
+  tokenVersion: {
+    type: Number,
+    default: 0,
+  },
+  // Set when the user ticked the terms box at signup (optional; not required by the API)
+  termsAcceptedAt: {
+    type: Date,
   },
   seekingRole: {
     type: String,
@@ -56,7 +71,6 @@ const userSchema = new mongoose.Schema({
     interviews: { type: Boolean, default: true },
     referrals: { type: Boolean, default: true },
   },
-  
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

@@ -15,7 +15,8 @@
     "seed:referral-demo": "node scripts/seedReferralDemo.js",
     "test": "node --test tests/ai/*.test.js",
     "test:indexes": "node --test --test-concurrency=1 tests/indexes/*.test.js",
-    "test:referrals": "node --test --test-concurrency=1 tests/referrals/*.test.js"
+    "test:referrals": "node --test --test-concurrency=1 tests/referrals/*.test.js",
+    "test:auth": "node --test --test-concurrency=1 tests/auth/*.test.js"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,8 @@
     "docx": "^9.16.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.13.0",
     "mongoose": "^9.9.1",

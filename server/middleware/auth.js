@@ -1,5 +1,6 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { verifyToken } = require('../utils/jwtConfig');
+const { isValidId } = require('./validate');
 
 // Verifies the Bearer token and loads the user. Sets req.user = { id, role }.
 const protect = async (req, res, next) => {
@@ -13,7 +14,7 @@ const protect = async (req, res, next) => {
 
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_SECRET);
+      payload = verifyToken(token);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ message: 'Session expired. Please log in again.', code: 'TOKEN_EXPIRED' });
@@ -21,9 +22,18 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid token. Please log in again.', code: 'INVALID_TOKEN' });
     }
 
-    const user = await User.findById(payload.userId).select('role');
+    if (!isValidId(String(payload.userId))) {
+      return res.status(401).json({ message: 'Invalid token. Please log in again.', code: 'INVALID_TOKEN' });
+    }
+
+    const user = await User.findById(payload.userId).select('role tokenVersion');
     if (!user) {
       return res.status(401).json({ message: 'Account no longer exists', code: 'INVALID_TOKEN' });
+    }
+    // Tokens issued before tokenVersion existed carry no `tv` and count as version 0. A password change bumps the
+    // user's version, which retires every older token.
+    if ((payload.tv ?? 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({ message: 'Session is no longer valid. Please log in again.', code: 'INVALID_TOKEN' });
     }
 
     req.user = { id: user._id.toString(), role: user.role };

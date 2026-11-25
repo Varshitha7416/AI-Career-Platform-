@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
-import { getUser, updateStoredUser } from '../utils/auth';
+import { getUser, updateStoredUser, setSession } from '../utils/auth';
 import { getErrorMessage } from '../utils/errors';
 import { ErrorMessage, SuccessMessage, Skeleton } from '../components/Feedback';
 
@@ -63,7 +63,7 @@ function Profile() {
     if (form.name.trim().length < 2) return setError('Name must be at least 2 characters.');
     if (form.isReferrer && !form.currentCompany.trim() && form.referralCompanies.length === 0) return setError('Add your current company or at least one company you can refer at.');
     if (form.experienceYears !== '' && (Number(form.experienceYears) < 0 || Number(form.experienceYears) > 50)) return setError('Experience must be between 0 and 50 years.');
-    if (newPassword && newPassword.length < 6) return setError('New password must be at least 6 characters.');
+    if (newPassword && newPassword.length < 8) return setError('New password must be at least 8 characters.');
 
     setSaving(true);
     try {
@@ -77,7 +77,9 @@ function Profile() {
         payload.newPassword = newPassword;
       }
       const res = await axiosClient.put('/auth/profile', payload);
-      updateStoredUser(res.data.user);
+      // A password change revokes the old token: the server returns a fresh one that must replace it.
+      if (res.data.token) setSession(res.data.token, res.data.user);
+      else updateStoredUser(res.data.user);
       setCurrentPassword('');
       setNewPassword('');
       setSuccess('Profile updated successfully.');

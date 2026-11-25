@@ -1,18 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams, Link, Navigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { setSession, isLoggedIn } from '../utils/auth';
-import { getErrorMessage } from '../utils/errors';
-import { ErrorMessage, SuccessMessage } from '../components/Feedback';
+import AuthShell from '../components/auth/AuthShell';
+import { TextField, PasswordField, SubmitButton, Banner } from '../components/auth/AuthFields';
+import { MailIcon, LockIcon } from '../components/auth/authIcons';
+import { emailError, describeAuthFailure } from '../components/auth/authRules';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [banner, setBanner] = useState('');
   const [loading, setLoading] = useState(false);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
+
+  useEffect(() => {
+    // Focus the first field on desktop only (on phones it would pop the keyboard open over the page).
+    if (window.matchMedia?.('(min-width: 1024px)').matches) emailRef.current?.focus();
+  }, []);
 
   if (isLoggedIn()) return <Navigate to="/home" replace />;
 
@@ -21,16 +31,16 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (loading) return;
+    setBanner('');
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    if (!password) {
-      setError('Please enter your password.');
-      return;
-    }
+    const next = {};
+    const emailMsg = emailError(email);
+    if (emailMsg) next.email = emailMsg;
+    if (!password) next.password = 'Please enter your password.';
+    setErrors(next);
+    if (next.email) return emailRef.current?.focus();
+    if (next.password) return passwordRef.current?.focus();
 
     setLoading(true);
     try {
@@ -38,59 +48,71 @@ function Login() {
       setSession(response.data.token, response.data.user);
       navigate('/home');
     } catch (err) {
-      setError(getErrorMessage(err, 'Login failed'));
-    } finally {
+      const failure = describeAuthFailure(err, 'Login failed. Please try again.');
+      setErrors(failure.fields);
+      setBanner(failure.banner);
+      if (failure.code === 'INVALID_CREDENTIALS') setTimeout(() => passwordRef.current?.focus(), 60);
       setLoading(false);
     }
   };
 
+  const notice = banner
+    ? { tone: 'error', text: banner }
+    : justSignedUp
+      ? { tone: 'success', text: 'Account created successfully! Please log in.' }
+      : expired
+        ? { tone: 'error', text: 'Your session expired. Please log in again.' }
+        : { tone: 'error', text: '' };
+
+  const clear = (field) => setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-      <div className="bg-white shadow-md rounded-xl p-8 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-primary mb-6 text-center">Log In</h2>
+    <AuthShell>
+      <Banner tone={notice.tone}>{notice.text}</Banner>
 
-        {justSignedUp && (
-          <div className="mb-4"><SuccessMessage message="Account created successfully! Please log in." /></div>
-        )}
-        {expired && !error && (
-          <div className="mb-4"><ErrorMessage message="Your session expired. Please log in again." /></div>
-        )}
-        {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
+      <form onSubmit={handleSubmit} noValidate aria-label="Log in" className="flex flex-col gap-4">
+        <TextField
+          ref={emailRef}
+          id="login-email"
+          label="Email address"
+          icon={MailIcon}
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); clear('email'); }}
+          error={errors.email}
+          disabled={loading}
+          required
+        />
+        <PasswordField
+          ref={passwordRef}
+          id="login-password"
+          label="Password"
+          icon={LockIcon}
+          name="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); clear('password'); }}
+          error={errors.password}
+          disabled={loading}
+          required
+        />
+        <div className="mt-1">
+          <SubmitButton loading={loading} loadingText="Logging in...">Log In</SubmitButton>
+        </div>
+      </form>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-primary text-white py-2 rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
-
-        <p className="text-sm text-charcoal mt-4 text-center">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-primary font-medium hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="mt-6 text-sm text-gray-600">
+        Don't have an account?{' '}
+        <Link to="/signup" className="focus-ring inline-flex min-h-10 items-center font-semibold text-primary hover:underline">
+          Sign up
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
 

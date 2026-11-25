@@ -1,88 +1,189 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { isLoggedIn } from '../utils/auth';
-import { getErrorMessage } from '../utils/errors';
-import { ErrorMessage } from '../components/Feedback';
+import AuthShell from '../components/auth/AuthShell';
+import { TextField, PasswordField, PasswordStrength, SubmitButton, Banner, FieldError } from '../components/auth/AuthFields';
+import { MailIcon, LockIcon, UserIcon } from '../components/auth/authIcons';
+import { nameError, emailError, passwordError, describeAuthFailure } from '../components/auth/authRules';
+
+const FIELD_ORDER = ['name', 'email', 'password', 'confirm', 'terms'];
 
 function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [terms, setTerms] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [banner, setBanner] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const nameRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
+  const termsRef = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (window.matchMedia?.('(min-width: 1024px)').matches) nameRef.current?.focus();
+  }, []);
 
   if (isLoggedIn()) return <Navigate to="/home" replace />;
 
+  const focusFirst = (errs) => {
+    const first = FIELD_ORDER.find((f) => errs[f]);
+    // Fields are disabled while a request is in flight; wait for the re-render before moving focus.
+    setTimeout(() => ({ name: nameRef, email: emailRef, password: passwordRef, confirm: confirmRef, terms: termsRef })[first]?.current?.focus(), 60);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (loading) return;
+    setBanner('');
 
-    if (name.trim().length < 2) return setError('Name must be at least 2 characters.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Please enter a valid email address.');
-    if (password.length < 6) return setError('Password must be at least 6 characters.');
+    const next = {};
+    const n = nameError(name);
+    if (n) next.name = n;
+    const em = emailError(email);
+    if (em) next.email = em;
+    const pw = passwordError(password, { name, email });
+    if (pw) next.password = pw;
+    if (!confirm) next.confirm = 'Please confirm your password.';
+    else if (confirm !== password) next.confirm = 'Passwords do not match.';
+    if (!terms) next.terms = 'Please agree to the Terms & Privacy Policy to continue.';
+    setErrors(next);
+    if (Object.keys(next).length) {
+      setPasswordTouched(true);
+      return focusFirst(next);
+    }
 
     setLoading(true);
     try {
-      await axiosClient.post('/auth/signup', { name: name.trim(), email: email.trim(), password });
+      await axiosClient.post('/auth/signup', { name: name.trim(), email: email.trim(), password, acceptTerms: true });
       navigate('/login', { state: { signedUp: true } });
     } catch (err) {
-      setError(getErrorMessage(err, 'Signup failed'));
-    } finally {
+      const failure = describeAuthFailure(err, 'Signup failed. Please try again.');
+      const serverErrors = { name: failure.fields.name, email: failure.fields.email, password: failure.fields.password };
+      setErrors(serverErrors);
+      setBanner(failure.banner || (Object.values(serverErrors).some(Boolean) ? 'Please fix the highlighted fields and try again.' : ''));
+      focusFirst(serverErrors);
       setLoading(false);
     }
   };
 
+  const clear = (...fields) => setErrors((prev) => {
+    if (!fields.some((f) => prev[f])) return prev;
+    const copy = { ...prev };
+    fields.forEach((f) => { copy[f] = undefined; });
+    return copy;
+  });
+
+  const showStrength = passwordTouched || password.length > 0;
+
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-      <div className="bg-white shadow-md rounded-xl p-8 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-primary mb-6 text-center">Sign Up</h2>
+    <AuthShell>
+      <Banner>{banner}</Banner>
 
-        {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <input
-            type="password"
-            placeholder="Password (min 6 characters)"
+      <form onSubmit={handleSubmit} noValidate aria-label="Create account" className="flex flex-col gap-3.5">
+        <TextField
+          ref={nameRef}
+          id="signup-name"
+          label="Full name"
+          icon={UserIcon}
+          name="name"
+          autoComplete="name"
+          maxLength={80}
+          value={name}
+          onChange={(e) => { setName(e.target.value); clear('name'); }}
+          error={errors.name}
+          disabled={loading}
+          required
+        />
+        <TextField
+          ref={emailRef}
+          id="signup-email"
+          label="Email address"
+          icon={MailIcon}
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); clear('email'); }}
+          error={errors.email}
+          disabled={loading}
+          required
+        />
+        <div>
+          <PasswordField
+            ref={passwordRef}
+            id="signup-password"
+            label="Password"
+            icon={LockIcon}
+            name="password"
+            autoComplete="new-password"
+            describedBy="signup-password-rules"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            type="submit"
+            onChange={(e) => { setPassword(e.target.value); clear('password'); }}
+            onFocus={() => setPasswordTouched(true)}
+            error={errors.password}
             disabled={loading}
-            className="bg-primary text-white py-2 rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
-          >
-            {loading ? 'Creating account...' : 'Sign Up'}
-          </button>
-        </form>
+            required
+          />
+          {showStrength && <PasswordStrength id="signup-password-rules" password={password} name={name} email={email} />}
+        </div>
+        <PasswordField
+          ref={confirmRef}
+          id="signup-confirm"
+          label="Confirm password"
+          icon={LockIcon}
+          name="confirmPassword"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => { setConfirm(e.target.value); clear('confirm'); }}
+          error={errors.confirm || (confirm && password && confirm !== password && confirm.length >= password.length ? 'Passwords do not match.' : '')}
+          disabled={loading}
+          required
+        />
 
-        <p className="text-sm text-charcoal mt-4 text-center">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary font-medium hover:underline">
-            Log in
-          </Link>
-        </p>
-      </div>
-    </div>
+        <div>
+          <label className="flex min-h-10 cursor-pointer items-center gap-2.5 text-sm text-gray-600">
+            <input
+              ref={termsRef}
+              type="checkbox"
+              name="acceptTerms"
+              checked={terms}
+              onChange={(e) => { setTerms(e.target.checked); clear('terms'); }}
+              aria-invalid={errors.terms ? 'true' : undefined}
+              aria-describedby={errors.terms ? 'signup-terms-error' : undefined}
+              disabled={loading}
+              required
+              className="focus-ring h-5 w-5 shrink-0 cursor-pointer rounded accent-[#235347]"
+            />
+            <span>
+              I agree to the{' '}
+              <span className="font-semibold text-primary">Terms</span>
+              {' '}&amp;{' '}
+              <span className="font-semibold text-primary">Privacy Policy</span>
+            </span>
+          </label>
+          <FieldError id="signup-terms-error" message={errors.terms} />
+        </div>
+
+        <SubmitButton loading={loading} loadingText="Creating account...">Create account</SubmitButton>
+      </form>
+
+      <p className="mt-5 text-sm text-gray-600">
+        Already have an account?{' '}
+        <Link to="/login" className="focus-ring inline-flex min-h-10 items-center font-semibold text-primary hover:underline">
+          Log in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
 

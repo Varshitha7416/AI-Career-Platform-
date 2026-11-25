@@ -1,28 +1,30 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { isEmail } = require('../middleware/validate');
+const { signToken } = require('../utils/jwtConfig');
+const { validateName, validateEmail, validatePassword, EMAIL_MAX } = require('../utils/authValidation');
 
-const publicUser = (u) => ({
-  id: u._id,
-  name: u.name,
-  email: u.email,
-  role: u.role,
-  seekingRole: u.seekingRole || '',
-  isReferrer: !!u.isReferrer,
-  currentCompany: u.currentCompany || '',
-  currentCompanyRole: u.currentCompanyRole || '',
-  referralCompanies: Array.isArray(u.referralCompanies) ? u.referralCompanies : [],
-  preferredLocation: u.preferredLocation || '',
-  preferredWorkMode: u.preferredWorkMode || '',
-  preferredEmploymentType: u.preferredEmploymentType || '',
-  experienceYears: u.experienceYears ?? null,
-  notificationPrefs: {
-    applications: u.notificationPrefs?.applications !== false,
-    interviews: u.notificationPrefs?.interviews !== false,
-    referrals: u.notificationPrefs?.referrals !== false,
-  },
-});
+const publicUser = (u) => {
+  return {
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    seekingRole: u.seekingRole || '',
+    isReferrer: !!u.isReferrer,
+    currentCompany: u.currentCompany || '',
+    currentCompanyRole: u.currentCompanyRole || '',
+    referralCompanies: Array.isArray(u.referralCompanies) ? u.referralCompanies : [],
+    preferredLocation: u.preferredLocation || '',
+    preferredWorkMode: u.preferredWorkMode || '',
+    preferredEmploymentType: u.preferredEmploymentType || '',
+    experienceYears: u.experienceYears ?? null,
+    notificationPrefs: {
+      applications: u.notificationPrefs?.applications !== false,
+      interviews: u.notificationPrefs?.interviews !== false,
+      referrals: u.notificationPrefs?.referrals !== false,
+    },
+  };
+};
 
 // Promote the configured admin email (if any) so admin access needs no manual DB edits.
 const applyAdminEmail = async (user) => {
@@ -33,23 +35,47 @@ const applyAdminEmail = async (user) => {
   }
 };
 
+const BCRYPT_ROUNDS = 12;
+let dummyHashPromise;
+// Compared against when the email is unknown so unknown-user and wrong-password logins take similar time.
+const dummyHash = () => {
+  if (!dummyHashPromise) dummyHashPromise = bcrypt.hash('not-a-real-password-for-timing-only', BCRYPT_ROUNDS);
+  return dummyHashPromise;
+};
+
+const bodyOf = (req) => (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {});
+
+const validationError = (res, errors, message = 'Please fix the highlighted fields') =>
+  res.status(400).json({ message, code: 'VALIDATION_ERROR', errors });
+
 const signup = async (req, res, next) => {
   try {
-    const name = String(req.body.name || '').trim();
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
+    // Only these fields are ever read from the body: role, tokenVersion, _id etc. can never be set by a client.
+    const { name: rawName, email: rawEmail, password: rawPassword, acceptTerms } = bodyOf(req);
 
-    if (name.length < 2) return res.status(400).json({ message: 'Name must be at least 2 characters' });
-    if (!isEmail(email)) return res.status(400).json({ message: 'Please enter a valid email address' });
-    if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    const errors = {};
+    const name = validateName(rawName);
+    if (name.error) errors.name = name.error;
+    const email = validateEmail(rawEmail);
+    if (email.error) errors.email = email.error;
+    const password = validatePassword(rawPassword, { email: email.value || '', name: name.value || '' });
+    if (password.error) errors.password = password.error;
+    if (Object.keys(errors).length) return validationError(res, errors);
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: 'An account with this email already exists' });
+    const emailTaken = { message: 'An account with this email already exists', code: 'EMAIL_EXISTS' };
+    if (await User.findOne({ email: email.value })) return res.status(409).json(emailTaken);
+
+    const hashedPassword = await bcrypt.hash(password.value, BCRYPT_ROUNDS);
+    const doc = { name: name.value, email: email.value, password: hashedPassword };
+    if (acceptTerms === true) doc.termsAcceptedAt = new Date();
+
+    let newUser;
+    try {
+      newUser = await User.create(doc);
+    } catch (err) {
+      if (err && err.code === 11000) return res.status(409).json(emailTaken); // lost a race with a concurrent signup
+      throw err;
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = await User.create({ name, email, password: hashedPassword });
     await applyAdminEmail(newUser);
 
     res.status(201).json({ message: 'Account created successfully', userId: newUser._id });
@@ -60,24 +86,24 @@ const signup = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
+    const { email: rawEmail, password } = bodyOf(req);
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    // Strings only: objects such as {"$gt": ""} are rejected before they can reach a query.
+    if (typeof rawEmail !== 'string' || typeof password !== 'string' || !rawEmail.trim() || !password) {
+      return res.status(400).json({ message: 'Email and password are required', code: 'VALIDATION_ERROR' });
     }
+    const email = rawEmail.trim().toLowerCase();
 
-    const user = await User.findOne({ email });
-    const isMatch = user ? await bcrypt.compare(password, user.password) : false;
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+    const user = email.length <= EMAIL_MAX ? await User.findOne({ email }) : null;
+    const hash = user ? user.password : await dummyHash();
+    const isMatch = await bcrypt.compare(password, hash);
+    if (!user || !isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
     }
 
     await applyAdminEmail(user);
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-    res.status(200).json({ message: 'Login successful', token, user: publicUser(user) });
+    res.status(200).json({ message: 'Login successful', token: signToken(user), user: publicUser(user) });
   } catch (error) {
     next(error);
   }
@@ -93,34 +119,55 @@ const getMe = async (req, res, next) => {
   }
 };
 
+// 400 with the same {message, code, errors:{field}} shape as signup.
+const fieldError = (res, field, message, code = 'VALIDATION_ERROR') => res.status(400).json({ message, code, errors: { [field]: message } });
+
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, seekingRole, isReferrer, currentCompany, currentCompanyRole, currentPassword, newPassword } = req.body;
+    // Whitelisted fields only (role, email, tokenVersion, _id... are never read from the body). Partial update:
+    // only keys present in the body are validated and changed.
+    const body = bodyOf(req);
+    const { name, seekingRole, isReferrer, currentCompany, currentCompanyRole, currentPassword, newPassword } = body;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (name !== undefined) {
-      const trimmed = String(name).trim();
-      if (trimmed.length < 2) return res.status(400).json({ message: 'Name must be at least 2 characters' });
-      user.name = trimmed;
+      const n = validateName(name);
+      if (n.error) return validationError(res, { name: n.error }, n.error);
+      user.name = n.value;
     }
-    if (seekingRole !== undefined) user.seekingRole = String(seekingRole).trim();
-    if (currentCompany !== undefined) user.currentCompany = String(currentCompany).trim();
-    if (currentCompanyRole !== undefined) user.currentCompanyRole = String(currentCompanyRole).trim();
-    if (isReferrer !== undefined) user.isReferrer = Boolean(isReferrer);
+    for (const [key, value] of [['currentCompany', currentCompany], ['currentCompanyRole', currentCompanyRole]]) {
+      if (value === undefined) continue;
+      if (typeof value !== 'string') return fieldError(res, key, `${key} must be text`);
+      if (value.trim().length > 100) return fieldError(res, key, `${key} must be 100 characters or fewer`);
+      user[key] = value.trim();
+    }
+    if (isReferrer !== undefined) {
+      if (typeof isReferrer !== 'boolean') return fieldError(res, 'isReferrer', 'isReferrer must be true or false');
+      user.isReferrer = isReferrer;
+    }
+
+    if (seekingRole !== undefined) {
+      if (typeof seekingRole !== 'string') return fieldError(res, 'seekingRole', 'seekingRole must be text');
+      if (seekingRole.trim().length > 100) return fieldError(res, 'seekingRole', 'Target role must be 100 characters or fewer');
+      user.seekingRole = seekingRole.trim();
+    }
 
     // Optional job preferences (used for recommendations); empty string clears a value.
-    const { preferredLocation, preferredWorkMode, preferredEmploymentType, experienceYears } = req.body;
-    if (preferredLocation !== undefined) user.preferredLocation = String(preferredLocation).trim().slice(0, 100);
+    const { preferredLocation, preferredWorkMode, preferredEmploymentType, experienceYears } = body;
+    if (preferredLocation !== undefined && typeof preferredLocation !== 'string') {
+      return fieldError(res, 'preferredLocation', 'preferredLocation must be text');
+    }
+    if (preferredLocation !== undefined) user.preferredLocation = preferredLocation.trim().slice(0, 100);
     if (preferredWorkMode !== undefined) {
       if (preferredWorkMode !== '' && !['onsite', 'hybrid', 'remote'].includes(preferredWorkMode)) {
-        return res.status(400).json({ message: 'Preferred work mode must be onsite, hybrid or remote' });
+        return fieldError(res, 'preferredWorkMode', 'Preferred work mode must be onsite, hybrid or remote');
       }
       user.preferredWorkMode = preferredWorkMode;
     }
     if (preferredEmploymentType !== undefined) {
       if (preferredEmploymentType !== '' && !['full-time', 'part-time', 'contract', 'internship'].includes(preferredEmploymentType)) {
-        return res.status(400).json({ message: 'Preferred employment type is not valid' });
+        return fieldError(res, 'preferredEmploymentType', 'Preferred employment type is not valid');
       }
       user.preferredEmploymentType = preferredEmploymentType;
     }
@@ -129,58 +176,76 @@ const updateProfile = async (req, res, next) => {
         user.experienceYears = undefined;
       } else {
         const y = Number(experienceYears);
-        if (!Number.isFinite(y) || y < 0 || y > 50) return res.status(400).json({ message: 'Experience must be between 0 and 50 years' });
+        if (typeof experienceYears === 'boolean' || !Number.isFinite(y) || y < 0 || y > 50) return fieldError(res, 'experienceYears', 'Experience must be between 0 and 50 years');
         user.experienceYears = y;
       }
     }
 
     // In-app notification preferences (booleans only; omitted keys are left unchanged)
-    if (req.body.notificationPrefs !== undefined) {
-      const prefs = req.body.notificationPrefs;
+    if (body.notificationPrefs !== undefined) {
+      const prefs = body.notificationPrefs;
       if (prefs === null || typeof prefs !== 'object' || Array.isArray(prefs)) {
-        return res.status(400).json({ message: 'notificationPrefs must be an object' });
+        return fieldError(res, 'notificationPrefs', 'notificationPrefs must be an object');
       }
       for (const key of ['applications', 'interviews', 'referrals']) {
         if (prefs[key] === undefined) continue;
-        if (typeof prefs[key] !== 'boolean') return res.status(400).json({ message: `notificationPrefs.${key} must be true or false` });
+        if (typeof prefs[key] !== 'boolean') return fieldError(res, 'notificationPrefs', `notificationPrefs.${key} must be true or false`);
         user.set(`notificationPrefs.${key}`, prefs[key]);
       }
     }
 
     // Companies the user can give referrals for (self-reported): <=10, each trimmed <=80, deduped (case-insensitive)
-    if (req.body.referralCompanies !== undefined) {
-      const raw = req.body.referralCompanies;
-      if (!Array.isArray(raw)) return res.status(400).json({ message: 'referralCompanies must be a list of company names' });
+    if (body.referralCompanies !== undefined) {
+      const raw = body.referralCompanies;
+      if (!Array.isArray(raw)) return fieldError(res, 'referralCompanies', 'referralCompanies must be a list of company names');
       const seen = new Set();
       const cleaned = [];
       for (const item of raw) {
-        if (typeof item !== 'string') return res.status(400).json({ message: 'Each company name must be text' });
+        if (typeof item !== 'string') return fieldError(res, 'referralCompanies', 'Each company name must be text');
         const c = item.trim();
         if (!c) continue;
-        if (c.length > 80) return res.status(400).json({ message: 'Each company name must be 80 characters or fewer' });
+        if (c.length > 80) return fieldError(res, 'referralCompanies', 'Each company name must be 80 characters or fewer');
         if (seen.has(c.toLowerCase())) continue;
         seen.add(c.toLowerCase());
         cleaned.push(c);
       }
-      if (cleaned.length > 10) return res.status(400).json({ message: 'You can list at most 10 companies' });
+      if (cleaned.length > 10) return fieldError(res, 'referralCompanies', 'You can list at most 10 companies');
       user.referralCompanies = cleaned;
     }
 
     if (user.isReferrer && !user.currentCompany && !(user.referralCompanies && user.referralCompanies.length)) {
-      return res.status(400).json({ message: 'Add your company (or at least one referral company) to register as a referrer' });
+      return fieldError(res, 'currentCompany', 'Add your company (or at least one referral company) to register as a referrer');
     }
 
+    let newToken;
     if (newPassword !== undefined && newPassword !== '') {
-      if (String(newPassword).length < 6) {
-        return res.status(400).json({ message: 'New password must be at least 6 characters' });
+      if (typeof newPassword !== 'string') return validationError(res, { newPassword: 'New password must be text' });
+      const policy = validatePassword(newPassword, { email: user.email, name: user.name });
+      if (policy.error) return validationError(res, { newPassword: policy.error }, policy.error);
+      const ok = typeof currentPassword === 'string' && currentPassword !== '' && await bcrypt.compare(currentPassword, user.password);
+      if (!ok) {
+        return res.status(400).json({
+          message: 'Current password is incorrect',
+          code: 'INVALID_CURRENT_PASSWORD',
+          errors: { currentPassword: 'Current password is incorrect' },
+        });
       }
-      const ok = await bcrypt.compare(String(currentPassword || ''), user.password);
-      if (!ok) return res.status(400).json({ message: 'Current password is incorrect' });
-      user.password = await bcrypt.hash(String(newPassword), 10);
+      if (newPassword === currentPassword) {
+        const msg = 'New password must be different from your current password';
+        return validationError(res, { newPassword: msg }, msg);
+      }
+      user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      user.tokenVersion = (user.tokenVersion || 0) + 1; // retires every older token
+      newToken = signToken(user);
     }
 
     await user.save();
-    res.status(200).json({ message: 'Profile updated', user: publicUser(user) });
+
+    res.status(200).json({
+      message: 'Profile updated',
+      user: publicUser(user),
+      ...(newToken ? { token: newToken } : {}),
+    });
   } catch (error) {
     next(error);
   }
