@@ -13,7 +13,7 @@ import Programs from './pages/Programs';
 import ProgramDetails from './pages/ProgramDetails';
 import Settings from './pages/Settings';
 import Contact from './pages/Contact';
-import ResumeUpload from './pages/ResumeUpload';
+import ResumeAnalyzer from './pages/ResumeAnalyzer';
 import CoverLetter from './pages/CoverLetter';
 import Referrals from './pages/Referrals';
 import About from './pages/About';
@@ -60,7 +60,7 @@ function App() {
         <Route path="/programs/:id" element={<Protected><ProgramDetails /></Protected>} />
         <Route path="/settings" element={<Protected><Settings /></Protected>} />
         <Route path="/contact" element={<Protected><Contact /></Protected>} />
-        <Route path="/resume" element={<Protected><ResumeUpload /></Protected>} />
+        <Route path="/resume" element={<Protected><ResumeAnalyzer /></Protected>} />
         <Route path="/cover-letter" element={<Protected><CoverLetter /></Protected>} />
         <Route path="/referrals" element={<Protected><Referrals /></Protected>} />
         <Route path="/about" element={<Protected><About /></Protected>} />
