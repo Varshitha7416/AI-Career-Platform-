@@ -166,9 +166,9 @@ function Signup() {
             />
             <span>
               I agree to the{' '}
-              <span className="font-semibold text-primary">Terms</span>
+              <Link to="/terms" target="_blank" rel="noopener noreferrer" className="focus-ring font-semibold text-primary underline">Terms<span className="sr-only"> (opens in a new tab)</span></Link>
               {' '}&amp;{' '}
-              <span className="font-semibold text-primary">Privacy Policy</span>
+              <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="focus-ring font-semibold text-primary underline">Privacy Policy<span className="sr-only"> (opens in a new tab)</span></Link>
             </span>
           </label>
           <FieldError id="signup-terms-error" message={errors.terms} />

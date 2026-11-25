@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import useJobActions from '../hooks/useJobActions';
 import { getUser } from '../utils/auth';
 import { getErrorMessage } from '../utils/errors';
 import JobCard from '../components/JobCard';
+import RecommendedPanel from '../components/jobs/RecommendedPanel';
 import Pagination from '../components/Pagination';
 import HeroArt from '../components/HeroArt';
-import { SearchIcon, PinIcon, BookmarkIcon, SparkIcon, FilterIcon, ChevronDown } from '../components/Icons';
+import { SearchIcon, PinIcon, BookmarkIcon, FilterIcon, ChevronDown } from '../components/Icons';
 import { Skeleton, ErrorMessage, SuccessMessage, EmptyState } from '../components/Feedback';
 import { EXPERIENCE_OPTIONS, SALARY_OPTIONS, SORT_OPTIONS, WORK_MODE_LABEL, EMPLOYMENT_LABEL } from '../utils/jobs';
 
@@ -152,7 +153,7 @@ function Jobs() {
   const toggleMode = (m) => update({ workMode: modes.includes(m) ? modes.filter((x) => x !== m) : [...modes, m] });
 
   const visibleSaved = savedJobs.filter((j) => savedIds.has(j._id));
-  const showReco = view === 'search' && !hasFilters && page === 1 && (recoLoading || (reco?.jobs?.length > 0));
+  const showReco = view === 'search' && !hasFilters && page === 1 && (recoLoading || Boolean(reco?.jobs?.length || reco?.groups?.length));
 
   return (
     <div className="min-h-screen bg-bg">
@@ -248,35 +249,7 @@ function Jobs() {
           <>
             {/* ---------------------------------------------------------- recommended */}
             {showReco && (
-              <section className="mb-10" aria-labelledby="reco-heading">
-                <div className="flex flex-wrap items-end justify-between gap-2 mb-4">
-                  <div>
-                    <h2 id="reco-heading" className="font-display text-2xl font-bold text-primary flex items-center gap-2">
-                      <SparkIcon className="text-accent" /> Recommended Jobs
-                    </h2>
-                    {reco && <p className="text-sm text-ink/65 mt-1 max-w-3xl">{reco.message}</p>}
-                  </div>
-                  {reco && (
-                    <span className={`text-xs font-medium px-3 py-1 rounded-full ${reco.personalized ? 'bg-accent text-white' : 'bg-sage/40 text-primary'}`}>
-                      {reco.personalized ? 'Matched to your profile' : 'Latest jobs'}
-                    </span>
-                  )}
-                </div>
-                {recoLoading ? (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"><Skeleton className="h-52" /><Skeleton className="h-52" /><Skeleton className="h-52 hidden lg:block" /><Skeleton className="h-52 hidden xl:block" /><Skeleton className="h-52 hidden xl:block" /></div>
-                ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                    {reco.jobs.map((job) => (
-                      <JobCard key={job._id} job={job} saved={savedIds.has(job._id)} busy={busyId === job._id} onToggleSave={toggleSave} showMatch={reco.personalized} />
-                    ))}
-                  </div>
-                )}
-                {reco && !reco.personalized && (
-                  <p className="text-xs text-ink/60 mt-3">
-                    Want better matches? Add a target role and preferences in your <Link to="/profile" className="underline text-primary">Profile</Link> or upload a resume in <Link to="/resume" className="underline text-primary">Resume AI</Link>.
-                  </p>
-                )}
-              </section>
+              <RecommendedPanel reco={reco} loading={recoLoading} savedIds={savedIds} busyId={busyId} onToggleSave={toggleSave} />
             )}
 
             {/* ---------------------------------------------------------- filters */}

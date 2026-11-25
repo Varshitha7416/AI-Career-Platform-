@@ -49,6 +49,8 @@ const PAGE_TITLES = [
   ['/profile', 'Profile'],
   ['/settings', 'Settings'],
   ['/contact', 'Contact Us'],
+  ['/terms', 'Terms of Service'],
+  ['/privacy', 'Privacy Policy'],
 ];
 
 const DETAIL_TITLES = {

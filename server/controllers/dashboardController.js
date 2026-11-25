@@ -70,7 +70,7 @@ const getOverview = async (req, res, next) => {
 
     // ---- wave 1: every per-user collection, in parallel (one query each)
     const [user, resumes, applications, savedAll, interviews, referrals, unread, enrollments, programs] = await Promise.all([
-      User.findById(userId).select('name seekingRole experienceYears preferredLocation preferredWorkMode preferredEmploymentType').lean(),
+      User.findById(userId).select('name seekingRole careerInterests primaryRole experienceYears preferredLocation preferredWorkMode preferredEmploymentType').lean(),
       Resume.find({ user: userId }).select('fileName createdAt').sort({ createdAt: -1 }).limit(200).lean(),
       Application.find({ user: userId }).select('job status appliedAt createdAt updatedAt statusHistory').lean(),
       SavedJob.find({ user: userId }).select('job createdAt').sort({ createdAt: -1 }).lean(),
@@ -174,7 +174,7 @@ const getOverview = async (req, res, next) => {
     const attended = ivs.some((i) => i.status === 'completed' || (i.status !== 'cancelled' && new Date(i.scheduledAt) < now));
     const milestones = [
       { key: 'profile', label: 'Complete your profile', done: profile.percent >= 80, progress: profile.percent, target: 100, fraction: profile.percent / 100, hint: profile.percent >= 80 ? 'Your profile is in great shape.' : `Your profile is ${profile.percent}% complete.`, link: '/profile' },
-      { key: 'resume', label: 'Upload your resume', done: resumes.length > 0, progress: Math.min(resumes.length, 1), target: 1, fraction: Math.min(resumes.length, 1), hint: resumes.length ? 'Resume on file.' : 'Upload a PDF resume to unlock match checks.', link: '/resume' },
+      { key: 'resume', label: 'Upload your resume', done: resumes.length > 0, progress: Math.min(resumes.length, 1), target: 1, fraction: Math.min(resumes.length, 1), hint: resumes.length ? 'Resume on file.' : 'Upload a resume (PDF, DOCX or TXT) to unlock match checks.', link: '/resume' },
       { key: 'apply10', label: 'Apply to 10 jobs', done: apps.length >= 10, progress: Math.min(apps.length, 10), target: 10, fraction: Math.min(apps.length, 10) / 10, hint: `${Math.min(apps.length, 10)} of 10 applications tracked.`, link: '/jobs' },
       { key: 'interview', label: 'Attend an interview', done: attended, progress: attended ? 1 : 0, target: 1, fraction: attended ? 1 : 0, hint: attended ? 'You have attended an interview.' : 'Schedule an interview from an application.', link: '/interviews' },
       { key: 'offer', label: 'Get an offer', done: byStatus.offer > 0, progress: byStatus.offer > 0 ? 1 : 0, target: 1, fraction: byStatus.offer > 0 ? 1 : 0, hint: byStatus.offer > 0 ? 'Congratulations on your offer!' : 'Mark an application as Offer when you receive one.', link: '/applications' },

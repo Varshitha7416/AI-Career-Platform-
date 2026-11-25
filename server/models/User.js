@@ -71,6 +71,51 @@ const userSchema = new mongoose.Schema({
     interviews: { type: Boolean, default: true },
     referrals: { type: Boolean, default: true },
   },
+  // ---- Profile (all optional, additive; legacy users simply lack them) ----
+  phone: { type: String, maxlength: 20 },
+  location: { type: String, maxlength: 100 },
+  headline: { type: String, maxlength: 120 },
+  bio: { type: String, maxlength: 600 },
+  linkedinUrl: { type: String, maxlength: 300 },
+  githubUrl: { type: String, maxlength: 300 },
+  portfolioUrl: { type: String, maxlength: 300 },
+  experienceLevel: { type: String, enum: ['fresher', 'experienced'] },
+  education: {
+    type: [new mongoose.Schema({
+      institution: { type: String, maxlength: 120 },
+      degree: { type: String, maxlength: 100 },
+      fieldOfStudy: { type: String, maxlength: 100 },
+      startYear: Number,
+      endYear: Number,
+      grade: { type: String, maxlength: 30 },
+    }, { _id: false })],
+    default: undefined,
+  },
+  experiences: {
+    type: [new mongoose.Schema({
+      company: { type: String, maxlength: 100 },
+      title: { type: String, maxlength: 100 },
+      startDate: String,
+      endDate: String,
+      current: Boolean,
+      description: { type: String, maxlength: 1000 },
+    }, { _id: false })],
+    default: undefined,
+  },
+  skills: {
+    type: [new mongoose.Schema({
+      name: { type: String, maxlength: 40 },
+      level: { type: String, enum: ['beginner', 'intermediate', 'advanced', 'expert'] },
+    }, { _id: false })],
+    default: undefined,
+  },
+  domains: { type: [String], default: undefined },
+  // At most 3, unique by roleKey. Empty/missing for legacy users: the API derives one interest from seekingRole.
+  careerInterests: {
+    type: [new mongoose.Schema({ role: { type: String, maxlength: 80 }, roleKey: { type: String, maxlength: 80 } }, { _id: false })],
+    default: undefined,
+  },
+  primaryRole: { type: String, maxlength: 80 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

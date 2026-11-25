@@ -16,7 +16,8 @@
     "test": "node --test tests/ai/*.test.js",
     "test:indexes": "node --test --test-concurrency=1 tests/indexes/*.test.js",
     "test:referrals": "node --test --test-concurrency=1 tests/referrals/*.test.js",
-    "test:auth": "node --test --test-concurrency=1 tests/auth/*.test.js"
+    "test:auth": "node --test --test-concurrency=1 tests/auth/*.test.js",
+    "test:profile": "node --test --test-concurrency=1 tests/profile/*.test.js"
   },
   "keywords": [],
   "author": "",

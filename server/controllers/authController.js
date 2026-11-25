@@ -1,14 +1,21 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Resume = require('../models/Resume');
 const { signToken } = require('../utils/jwtConfig');
 const { validateName, validateEmail, validatePassword, EMAIL_MAX } = require('../utils/authValidation');
+const { effectiveInterests, searchRoles, roleKey, cleanRole, ROLE_MAX } = require('../utils/roles');
+const P = require('../utils/profileValidation');
+
+const plain = (arr) => (Array.isArray(arr) ? arr.map((x) => (x && typeof x.toObject === 'function' ? x.toObject() : x)) : []);
 
 const publicUser = (u) => {
+  const { interests, primaryRole } = effectiveInterests(u);
   return {
     id: u._id,
     name: u.name,
     email: u.email,
     role: u.role,
+    createdAt: u.createdAt || null,
     seekingRole: u.seekingRole || '',
     isReferrer: !!u.isReferrer,
     currentCompany: u.currentCompany || '',
@@ -23,6 +30,21 @@ const publicUser = (u) => {
       interviews: u.notificationPrefs?.interviews !== false,
       referrals: u.notificationPrefs?.referrals !== false,
     },
+    phone: u.phone || '',
+    location: u.location || '',
+    headline: u.headline || '',
+    bio: u.bio || '',
+    linkedinUrl: u.linkedinUrl || '',
+    githubUrl: u.githubUrl || '',
+    portfolioUrl: u.portfolioUrl || '',
+    experienceLevel: u.experienceLevel || '',
+    education: plain(u.education),
+    experiences: plain(u.experiences),
+    skills: plain(u.skills),
+    domains: Array.isArray(u.domains) ? [...u.domains] : [],
+    // Derived from the legacy seekingRole when nothing is stored yet (no migration needed).
+    careerInterests: interests,
+    primaryRole,
   };
 };
 
@@ -113,10 +135,25 @@ const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.status(200).json({ user: publicUser(user) });
+    const { interests } = effectiveInterests(user);
+    const keys = new Set(interests.map((i) => i.roleKey));
+    const keyed = await Resume.find({ user: req.user.id }).select('targetRoleKey').lean();
+    const roleResumeCount = keyed.filter((r) => r.targetRoleKey && keys.has(r.targetRoleKey)).length;
+    const resumeSummary = {
+      count: keyed.length,
+      roleResumeCount,
+      resumeReady: keyed.length > 0,
+      unassignedCount: keyed.length - roleResumeCount,
+    };
+    res.status(200).json({ user: { ...publicUser(user), resumeSummary } });
   } catch (error) {
     next(error);
   }
+};
+
+const getRoles = (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.slice(0, ROLE_MAX) : '';
+  res.status(200).json({ roles: searchRoles(q, 15) });
 };
 
 // 400 with the same {message, code, errors:{field}} shape as signup.
@@ -147,10 +184,87 @@ const updateProfile = async (req, res, next) => {
       user.isReferrer = isReferrer;
     }
 
-    if (seekingRole !== undefined) {
+    // ---- extended profile fields ('' clears a text value)
+    const simple = [
+      ['phone', () => P.validatePhone(body.phone)],
+      ['location', () => P.text(body.location, 'Location', 100)],
+      ['headline', () => P.text(body.headline, 'Headline', 120)],
+      ['bio', () => P.text(body.bio, 'About you', 600, { multiline: true })],
+      ['linkedinUrl', () => P.validateUrl(body.linkedinUrl, 'LinkedIn link')],
+      ['githubUrl', () => P.validateUrl(body.githubUrl, 'GitHub link')],
+      ['portfolioUrl', () => P.validateUrl(body.portfolioUrl, 'Portfolio link')],
+    ];
+    for (const [key, run] of simple) {
+      if (body[key] === undefined) continue;
+      const result = run();
+      if (result.error) return fieldError(res, key, result.error);
+      user[key] = result.value || undefined;
+    }
+    if (body.experienceLevel !== undefined) {
+      const r = P.validateExperienceLevel(body.experienceLevel);
+      if (r.error) return fieldError(res, 'experienceLevel', r.error);
+      user.experienceLevel = r.value;
+    }
+    for (const [key, fn] of [['education', P.validateEducation], ['experiences', P.validateExperiences], ['skills', P.validateSkills], ['domains', P.validateDomains]]) {
+      if (body[key] === undefined) continue;
+      const r = fn(body[key]);
+      if (r.error) return fieldError(res, key, r.error);
+      user[key] = r.value;
+    }
+
+    // ---- career interests (<=3) + primary role; seekingRole is kept equal to the primary role
+    const before = effectiveInterests(user);
+    const hadStored = Array.isArray(user.careerInterests) && user.careerInterests.length > 0;
+    let interests = before.interests;
+    let primaryKey = before.primaryKey;
+    let interestsTouched = false;
+    let legacyRoleIgnored = false;
+    if (body.careerInterests !== undefined) {
+      const r = P.validateInterests(body.careerInterests);
+      if (r.error) return fieldError(res, 'careerInterests', r.error, r.code);
+      interests = r.value;
+      if (!interests.some((i) => i.roleKey === primaryKey)) primaryKey = interests[0] ? interests[0].roleKey : '';
+      interestsTouched = true;
+    } else if (seekingRole !== undefined) {
+      interestsTouched = true;
+      // Legacy single-role field: an existing interest becomes primary, a new one is added (or replaces the single
+      // derived legacy role). Empty removes the primary interest.
       if (typeof seekingRole !== 'string') return fieldError(res, 'seekingRole', 'seekingRole must be text');
-      if (seekingRole.trim().length > 100) return fieldError(res, 'seekingRole', 'Target role must be 100 characters or fewer');
-      user.seekingRole = seekingRole.trim();
+      const role = cleanRole(seekingRole);
+      if (role.length > ROLE_MAX) return fieldError(res, 'seekingRole', `Role must be ${ROLE_MAX} characters or fewer`);
+      const key = roleKey(role);
+      if (!role) {
+        interests = interests.filter((i) => i.roleKey !== primaryKey);
+        primaryKey = interests[0] ? interests[0].roleKey : '';
+      } else if (interests.some((i) => i.roleKey === key)) {
+        primaryKey = key;
+      } else if (!hadStored) {
+        interests = [{ role, roleKey: key }];
+        primaryKey = key;
+      } else if (interests.length >= 3) {
+        // Legacy single-role write against a full three-role profile: never invalidate the profile or replace the
+        // primary role behind the user's back. Interests stay as they are and the response says so.
+        legacyRoleIgnored = true;
+        interestsTouched = false;
+      } else {
+        interests = [...interests, { role, roleKey: key }];
+        primaryKey = key;
+      }
+    }
+    if (body.primaryRole !== undefined) {
+      if (typeof body.primaryRole !== 'string') return fieldError(res, 'primaryRole', 'primaryRole must be text');
+      const k = roleKey(body.primaryRole);
+      if (k) {
+        if (!interests.some((i) => i.roleKey === k)) return fieldError(res, 'primaryRole', 'Your primary role must be one of your career interests', 'INVALID_PRIMARY_ROLE');
+        primaryKey = k;
+      }
+      interestsTouched = true;
+    }
+    if (interestsTouched) {
+      const primary = interests.find((i) => i.roleKey === primaryKey) || interests[0] || null;
+      user.careerInterests = interests;
+      user.primaryRole = primary ? primary.role : undefined;
+      user.seekingRole = primary ? primary.role : '';
     }
 
     // Optional job preferences (used for recommendations); empty string clears a value.
@@ -241,9 +355,21 @@ const updateProfile = async (req, res, next) => {
 
     await user.save();
 
+    // A role that is no longer an interest can no longer be a resume's target: un-assign (never delete) those resumes.
+    let resumesUnassigned = 0;
+    if (interestsTouched) {
+      const keep = interests.map((i) => i.roleKey);
+      const r = await Resume.updateMany(
+        { user: user._id, targetRoleKey: { $nin: [null, ...keep] } },
+        { $set: { targetRole: null, targetRoleKey: null } },
+      );
+      resumesUnassigned = r.modifiedCount || 0;
+    }
     res.status(200).json({
       message: 'Profile updated',
       user: publicUser(user),
+      ...(resumesUnassigned ? { resumesUnassigned } : {}),
+      ...(legacyRoleIgnored ? { notice: 'You already have 3 career interests, so the new role was not added. Use career interests to change them.' } : {}),
       ...(newToken ? { token: newToken } : {}),
     });
   } catch (error) {
@@ -251,4 +377,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { signup, login, getMe, updateProfile };
+module.exports = { signup, login, getMe, getRoles, updateProfile };

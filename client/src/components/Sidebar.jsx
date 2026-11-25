@@ -140,7 +140,7 @@ function Sidebar() {
             type="button"
             onClick={close}
             aria-label="Collapse menu"
-            className="focus-ring p-2 rounded-lg text-leaf-muted hover:bg-sidebar-hover hover:text-leaf"
+            className="focus-ring inline-flex items-center justify-center min-h-10 min-w-10 rounded-lg text-leaf-muted hover:bg-sidebar-hover hover:text-leaf"
           >
             <ChevronLeft size={18} />
           </button>

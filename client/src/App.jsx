@@ -20,6 +20,8 @@ import ReferralFind from './pages/ReferralFind';
 import ReferralDetails from './pages/ReferralDetails';
 import About from './pages/About';
 import Profile from './pages/Profile';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import { isLoggedIn } from './utils/auth';
@@ -69,6 +71,9 @@ function App() {
         <Route path="/referrals/:id" element={<Protected><ReferralDetails /></Protected>} />
         <Route path="/about" element={<Protected><About /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
+        {/* Public: readable logged in (shared Layout) and logged out (LegalPage picks its own shell). */}
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

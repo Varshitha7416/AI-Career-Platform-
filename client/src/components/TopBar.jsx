@@ -75,7 +75,7 @@ function TopBar() {
   const title = pageTitleFor(pathname);
 
   const linkClass = ({ isActive }) =>
-    `focus-ring px-3.5 py-1.5 rounded-full text-sm transition ${
+    `focus-ring inline-flex items-center min-h-10 px-3.5 rounded-full text-sm transition ${
       isActive ? 'bg-primary text-white font-medium' : 'text-ink/80 hover:bg-mint hover:text-primary'
     }`;
 
@@ -103,7 +103,7 @@ function TopBar() {
           <NotificationBell />
           <Link
             to="/contact"
-            className="focus-ring hidden md:inline-flex items-center rounded-full border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-white transition"
+            className="focus-ring hidden md:inline-flex items-center min-h-10 rounded-full border border-primary text-primary px-4 text-sm font-medium hover:bg-primary hover:text-white transition"
           >
             Contact Us
           </Link>

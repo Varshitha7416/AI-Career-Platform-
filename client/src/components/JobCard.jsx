@@ -4,7 +4,7 @@ import { BookmarkIcon, PinIcon, BriefcaseIcon, UsersIcon, WalletIcon, ClockIcon 
 import { formatExperience, formatSalary, formatLocation, timeAgo, WORK_MODE_LABEL, EMPLOYMENT_LABEL, isDemo } from '../utils/jobs';
 
 // Job summary card used for recommended, search and saved jobs.
-function JobCard({ job, saved, busy, onToggleSave, showMatch = false }) {
+function JobCard({ job, saved, busy, onToggleSave, showMatch = false, extra = null }) {
   const navigate = useNavigate();
   const salary = formatSalary(job);
   const open = () => navigate(`/jobs/${job._id}`);
@@ -52,6 +52,8 @@ function JobCard({ job, saved, busy, onToggleSave, showMatch = false }) {
           <span className="font-semibold">{job.matchScore}% match</span> · {job.matchReasons[0]}
         </p>
       )}
+
+      {extra}
 
       <div className="mt-auto pt-3 flex flex-wrap items-center gap-1.5">
         <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-accent text-white">{WORK_MODE_LABEL[job.workMode] || 'Onsite'}</span>

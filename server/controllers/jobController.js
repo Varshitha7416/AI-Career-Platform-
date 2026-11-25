@@ -5,6 +5,8 @@ const Resume = require('../models/Resume');
 const Application = require('../models/Application');
 const { isValidId, escapeRegex } = require('../middleware/validate');
 const { CURRENCIES } = require('../utils/salary');
+const { effectiveInterests } = require('../utils/roles');
+const { buildRecommendations } = require('../utils/recommendationEngine');
 
 const LEVELS = ['fresher', 'experienced'];
 
@@ -253,100 +255,20 @@ const getJobMeta = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------- recommendations (rule based, NOT AI)
-const STOP = new Set(['and', 'or', 'the', 'a', 'an', 'of', 'for', 'in', 'at', 'to', 'with', 'senior', 'junior', 'lead']);
-const words = (s) => String(s || '').toLowerCase().split(/[^a-z0-9+#.]+/).filter((w) => w.length > 1 && !STOP.has(w));
-
-const containsSkill = (text, skill) => {
-  const esc = escapeRegex(skill.toLowerCase());
-  return new RegExp(`(^|[^a-z0-9+#.])${esc}($|[^a-z0-9+#])`).test(text);
-};
-
+// One group per career interest (scored with that role's resume, default-resume fallback, else profile skills), plus
+// the merged top-level list. Computed per request on purpose (no cache), so role/resume/profile edits apply at once.
 const getRecommendedJobs = async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 20);
-    const user = await User.findById(req.user.id).select('seekingRole experienceYears preferredLocation preferredWorkMode preferredEmploymentType').lean();
-    const resume = await Resume.findOne({ user: req.user.id }).sort({ createdAt: -1 }).select('resumeText').lean();
-    const resumeText = (resume?.resumeText || '').toLowerCase();
+    const user = await User.findById(req.user.id).select('seekingRole careerInterests primaryRole skills experienceYears preferredLocation preferredWorkMode preferredEmploymentType').lean();
+    const resumes = await Resume.find({ user: req.user.id }).select('name fileName isDefault targetRoleKey resumeText createdAt').lean();
+    const { interests, primaryKey } = effectiveInterests(user || {});
 
     const jobs = await Job.find({ isActive: { $ne: false } }).populate('company').lean();
     const applied = new Set((await Application.find({ user: req.user.id }).select('job').lean()).map((a) => String(a.job)));
     const candidates = jobs.filter((j) => !applied.has(String(j._id)));
 
-    const roleWords = words(user?.seekingRole);
-    const hasRole = roleWords.length > 0;
-    const hasResume = resumeText.length > 0;
-    const hasPrefs = Boolean(user?.preferredLocation || user?.preferredWorkMode || user?.preferredEmploymentType || user?.experienceYears !== undefined);
-
-    const latest = () => candidates.sort((a, b) => new Date(b.postedAt || b.createdAt) - new Date(a.postedAt || a.createdAt)).slice(0, limit);
-    if (!hasRole && !hasResume && !hasPrefs) {
-      return res.status(200).json({
-        personalized: false,
-        basis: 'latest',
-        message: 'Showing the latest jobs. Add a target role and preferences in your Profile, or upload a resume, to get matched recommendations.',
-        jobs: latest(),
-      });
-    }
-
-    const scored = candidates.map((job) => {
-      let score = 0;
-      const reasons = [];
-
-      if (hasRole) {
-        const titleWords = new Set(words(job.title));
-        const hits = roleWords.filter((w) => titleWords.has(w)).length;
-        if (hits) {
-          score += Math.round((hits / roleWords.length) * 40);
-          reasons.push(hits === roleWords.length ? 'Job title matches your target role' : 'Job title partly matches your target role');
-        }
-      }
-      if (hasResume && job.skills?.length) {
-        const found = job.skills.filter((s) => containsSkill(resumeText, s));
-        if (found.length) {
-          score += Math.min(found.length, 5) * 8;
-          reasons.push(`Skills found in your resume: ${found.slice(0, 4).join(', ')}`);
-        }
-      }
-      const years = user?.experienceYears;
-      if (years !== undefined && years !== null && job.experienceMinYears !== undefined) {
-        if (years >= job.experienceMinYears && years <= (job.experienceMaxYears ?? 99)) {
-          score += 10;
-          reasons.push(`Fits your ${years} year${years === 1 ? '' : 's'} of experience`);
-        } else if (Math.abs(years - job.experienceMinYears) <= 1 || Math.abs(years - (job.experienceMaxYears ?? years)) <= 1) {
-          score += 5;
-          reasons.push('Close to your experience level');
-        }
-      }
-      if (user?.preferredLocation && job.city && job.city.toLowerCase().includes(user.preferredLocation.toLowerCase())) {
-        score += 10;
-        reasons.push(`Located in ${job.city}`);
-      }
-      if (user?.preferredWorkMode && job.workMode === user.preferredWorkMode) {
-        score += 5;
-        reasons.push(`${job.workMode[0].toUpperCase()}${job.workMode.slice(1)} work, as you prefer`);
-      }
-      if (user?.preferredEmploymentType && job.employmentType === user.preferredEmploymentType) {
-        score += 5;
-        reasons.push(`${job.employmentType} role, as you prefer`);
-      }
-      return { ...job, matchScore: Math.min(score, 100), matchReasons: reasons };
-    });
-
-    const matched = scored.filter((j) => j.matchReasons.length).sort((a, b) => b.matchScore - a.matchScore || new Date(b.postedAt) - new Date(a.postedAt)).slice(0, limit);
-    if (!matched.length) {
-      return res.status(200).json({
-        personalized: false,
-        basis: 'latest',
-        message: 'No close matches for your current profile yet, so these are the latest jobs.',
-        jobs: latest(),
-      });
-    }
-    res.status(200).json({
-      personalized: true,
-      basis: 'profile',
-      signals: { targetRole: hasRole, resumeSkills: hasResume, preferences: hasPrefs },
-      message: 'Matched using your target role, resume skills and preferences (simple rule-based matching, not AI).',
-      jobs: matched,
-    });
+    res.status(200).json(buildRecommendations({ user: user || {}, interests, primaryKey, resumes, candidates, limit }));
   } catch (error) {
     next(error);
   }

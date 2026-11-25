@@ -288,6 +288,7 @@ function ResumeLibrary({ selectedId, onSelect, onResumesChange, compact = false,
                           {r.fileSize ? <span>{formatSize(r.fileSize)}</span> : null}
                           <span>Uploaded {formatDate(r.createdAt)}</span>
                           {r.isDefault && <span className="px-2 py-0.5 rounded-full bg-mint text-primary font-semibold">Default</span>}
+                          {r.roleAssigned && <span className="px-2 py-0.5 rounded-full border border-sage text-primary font-semibold">Role: {r.targetRole}</span>}
                           {selected && <span className="px-2 py-0.5 rounded-full bg-accent text-white font-semibold">Selected</span>}
                         </span>
                       </button>
