@@ -135,10 +135,11 @@ const normaliseSuggestions = (rawList, resumeText, job, claims) => {
         detail = detail.replace(re, '[your figure]');
         wording = wording.replace(re, '[your figure]');
       }
-      const named = [...new Set(found.filter((i) => !(figures.size && /d/.test(i.term) && (i.type === 'number' || i.type === 'years'))).map((i) => i.term))];
+      const CATS = { number: 'figures', years: 'figures', skill: 'tools', certification: 'certifications', degree: 'certifications', employer: 'employers' };
+      const cats = [...new Set(found.map((i) => CATS[i.type]).filter(Boolean))];
       kind = 'content-to-verify';
       requires = true;
-      detail = `${detail} Note: this mentions ${[...named, ...(figures.size ? ['figures'] : [])].join(', ')} that your resume does not show. Use it only if it is true for you.`.slice(0, LIMITS.text);
+      detail = `${/[.!?]\s*$/.test(detail) ? detail : `${detail.trimEnd()}.`} Some details here (such as ${cats.join(', ') || 'figures'}) are not in your resume. Only keep them if they are true.`.slice(0, LIMITS.text);
     }
     if (kind === 'content-to-verify') {
       requires = true;
@@ -328,10 +329,12 @@ const normaliseResult = (raw, resumeText, job) => {
   const summary =
     clean(rawSummary) ||
     `This CareerNest AI assessment found ${strengths.length} evidence-backed strength(s) and ${matchingSkills.length} matching skill(s) in the resume.`;
-  const scoreExplanation =
-    clean(str(raw.scoreExplanation, LIMITS.text)) ||
-    `This CareerNest AI assessment scores the resume ${overallScore}/100 based on the content it contains.`;
-
+  // The model's explanation must agree with the final (capped) numbers and not overclaim.
+  const fallbackExplanation = `This CareerNest AI assessment scores the resume ${overallScore}/100 based on ${verifiedItems} evidence-backed item(s) found in it${matchPercentage !== null ? `, with a ${matchPercentage}% match to the job` : ''}.`;
+  let scoreExplanation = clean(str(raw.scoreExplanation, LIMITS.text));
+  const quoted = (scoreExplanation.match(/\b\d{1,3}\s*(?:%|\/\s*100|out of 100|points?)/gi) || []).map((x) => parseInt(x, 10));
+  const inconsistent = quoted.some((n) => n !== overallScore && n !== matchPercentage);
+  if (!scoreExplanation || inconsistent || /\b(?:perfect|flawless|ideal candidate|guaranteed)\b/i.test(scoreExplanation)) scoreExplanation = fallbackExplanation;
   const result = {
     summary,
     scoreExplanation,

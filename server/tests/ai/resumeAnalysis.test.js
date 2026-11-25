@@ -157,7 +157,7 @@ test('suggestions: new content must be content-to-verify and phrased as a questi
   assert.equal(bad.kind, 'content-to-verify');
   assert.equal(bad.requiresUserVerification, true);
   assert.ok(!bad.suggestedWording.includes('40%') && bad.suggestedWording.includes('[your figure]'));
-  assert.match(bad.detail, /Docker/);
+  assert.match(bad.detail, /Some details here/);
 });
 
 test('general mode: job-only arrays empty, matchPercentage null, structureFeedback kept', async () => {
@@ -292,4 +292,29 @@ test('D4: job needing R/C is not "missing" when the resume lists them', async ()
   const m = result.matchingSkills.map((s) => s.skill).sort();
   assert.deepEqual(m, ['C', 'R']);
   assert.deepEqual(result.missingSkills.map((s) => s.skill), ['Go']);
+});
+
+// ---- QA follow-ups ----
+test('note on content-to-verify suggestions is category-level, not raw tokens', async () => {
+  const { result } = await run(sug({ detail: 'Add your AWS Certified Solutions Architect credential and the 5 engineers you managed at Google' }));
+  const d = result.suggestions[0].detail;
+  assert.match(d, /Some details here \(such as [a-z, ]+\) are not in your resume\. Only keep them if they are true\./);
+  assert.match(d, /certifications/);
+  assert.match(d, /employers/);
+  assert.match(d, /figures/);
+  assert.doesNotMatch(d.split('Some details')[1], /AWS|Google|Solutions|\b5\b/);
+});
+
+test('scoreExplanation: stripped of unsupported claims and kept consistent with the final score', async () => {
+  const perfect = await run(baseRaw({ overallScore: 100, scoreExplanation: 'Perfect resume.' }));
+  assert.doesNotMatch(perfect.result.scoreExplanation, /Perfect/);
+  assert.ok(perfect.result.scoreExplanation.includes(`${perfect.overallScore}/100`));
+  const wrong = await run(baseRaw({ overallScore: 100, scoreExplanation: 'Scores 100/100 because everything matches.' }));
+  assert.ok(wrong.overallScore < 100);
+  assert.ok(wrong.result.scoreExplanation.includes(`${wrong.overallScore}/100`));
+  const empty = await run(baseRaw({ scoreExplanation: '' }));
+  assert.match(empty.result.scoreExplanation, /CareerNest AI assessment scores the resume/);
+  const unsupported = await run(baseRaw({ scoreExplanation: 'Strong React base. Managed 20 engineers at Google.' }));
+  assert.match(unsupported.result.scoreExplanation, /Strong React base\./);
+  assert.doesNotMatch(unsupported.result.scoreExplanation, /Google|20 engineers/);
 });
