@@ -21,12 +21,8 @@ const saveJob = async (req, res, next) => {
   }
 };
 
-const getSavedJobs = async (req, res, next) => {
+const listSaved = async (req, res, next) => {
   try {
-    if (req.params.userId !== req.user.id) {
-      return res.status(403).json({ message: 'You can only view your own saved jobs' });
-    }
-
     const all = await SavedJob.find({ user: req.user.id })
       .sort({ createdAt: -1 })
       .populate({ path: 'job', populate: { path: 'company' } });
@@ -42,6 +38,17 @@ const getSavedJobs = async (req, res, next) => {
   }
 };
 
+// GET /saved-jobs/:userId (kept for compatibility): the id must equal the token user.
+const getSavedJobs = (req, res, next) => {
+  if (req.params.userId !== req.user.id) {
+    return res.status(403).json({ message: 'You can only view your own saved jobs' });
+  }
+  return listSaved(req, res, next);
+};
+
+// GET /saved-jobs: always the token user.
+const getMySavedJobs = (req, res, next) => listSaved(req, res, next);
+
 const unsaveJob = async (req, res, next) => {
   try {
     // :jobId is the job's id; only the caller's own saved entry can match.
@@ -53,4 +60,4 @@ const unsaveJob = async (req, res, next) => {
   }
 };
 
-module.exports = { saveJob, getSavedJobs, unsaveJob };
+module.exports = { saveJob, getSavedJobs, getMySavedJobs, unsaveJob };

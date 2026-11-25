@@ -16,6 +16,11 @@ const publicUser = (u) => ({
   preferredWorkMode: u.preferredWorkMode || '',
   preferredEmploymentType: u.preferredEmploymentType || '',
   experienceYears: u.experienceYears ?? null,
+  notificationPrefs: {
+    applications: u.notificationPrefs?.applications !== false,
+    interviews: u.notificationPrefs?.interviews !== false,
+    referrals: u.notificationPrefs?.referrals !== false,
+  },
 });
 
 // Promote the configured admin email (if any) so admin access needs no manual DB edits.
@@ -125,6 +130,19 @@ const updateProfile = async (req, res, next) => {
         const y = Number(experienceYears);
         if (!Number.isFinite(y) || y < 0 || y > 50) return res.status(400).json({ message: 'Experience must be between 0 and 50 years' });
         user.experienceYears = y;
+      }
+    }
+
+    // In-app notification preferences (booleans only; omitted keys are left unchanged)
+    if (req.body.notificationPrefs !== undefined) {
+      const prefs = req.body.notificationPrefs;
+      if (prefs === null || typeof prefs !== 'object' || Array.isArray(prefs)) {
+        return res.status(400).json({ message: 'notificationPrefs must be an object' });
+      }
+      for (const key of ['applications', 'interviews', 'referrals']) {
+        if (prefs[key] === undefined) continue;
+        if (typeof prefs[key] !== 'boolean') return res.status(400).json({ message: `notificationPrefs.${key} must be true or false` });
+        user.set(`notificationPrefs.${key}`, prefs[key]);
       }
     }
 

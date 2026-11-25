@@ -28,6 +28,24 @@ export const WalletIcon = make(<><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H
 export const SparkIcon = make(<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />);
 export const FilterIcon = make(<path d="M4 6h16M7 12h10M10 18h4" />);
 
+// ---- shell / navigation icons (Agent 2) ----
+export const HomeIcon = make(<><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>);
+export const DashboardIcon = make(<><rect x="3.5" y="3.5" width="7" height="8" rx="1.6" /><rect x="13.5" y="3.5" width="7" height="5" rx="1.6" /><rect x="13.5" y="11.5" width="7" height="9" rx="1.6" /><rect x="3.5" y="14.5" width="7" height="6" rx="1.6" /></>);
+export const ClipboardIcon = make(<><rect x="5" y="4.5" width="14" height="16.5" rx="2" /><path d="M9 4.5h6v2.2H9zM8.5 11h7M8.5 15h5" /></>);
+export const VideoIcon = make(<><rect x="3" y="6" width="12.5" height="12" rx="2" /><path d="m15.5 10.5 5-2.5v8l-5-2.5" /></>);
+export const GraduationIcon = make(<><path d="m2.5 9 9.5-4.5L21.5 9 12 13.5 2.5 9Z" /><path d="M6.5 11.2v4.3c0 1.2 2.5 2.5 5.5 2.5s5.5-1.3 5.5-2.5v-4.3M21.5 9v5" /></>);
+export const FileTextIcon = make(<><path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5l-5-5Z" /><path d="M14 3.5v5h5M9 13h6M9 16.5h6" /></>);
+export const UserIcon = make(<><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20c.7-3.8 3.8-6 7.5-6s6.8 2.2 7.5 6" /></>);
+export const SettingsIcon = make(<><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" /><circle cx="12" cy="12" r="6.6" /></>);
+export const MailIcon = make(<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></>);
+export const HandshakeIcon = make(<><path d="m11 14.5 2.2 2.2a1.5 1.5 0 0 0 2.1-2.1M13 12.5l2.6 2.6a1.5 1.5 0 0 0 2.1-2.1L15 10.3" /><path d="M3 12l4.5-4.5 3 1 3-1.5 3.5 1L21 12M3 12l3 3M21 12l-3 3" /></>);
+export const InfoIcon = make(<><circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.6v.1" /></>);
+export const BellIcon = make(<><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15L6 16.5Z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>);
+export const SunIcon = make(<><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" /></>);
+export const MoonIcon = make(<path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />);
+export const MenuIcon = make(<path d="M4 7h16M4 12h16M4 17h16" />);
+export const LogoutIcon = make(<><path d="M9.5 4.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 19.5h3.5" /><path d="M15 8l4 4-4 4M19 12H9.5" /></>);
+
 // Bookmark can be filled (saved state).
 export function BookmarkIcon({ filled = false, size = 18, className = '' }) {
   return (

@@ -45,6 +45,12 @@ const userSchema = new mongoose.Schema({
     type: Number,
     min: 0,
   },
+  // In-app notification preferences (all on by default)
+  notificationPrefs: {
+    applications: { type: Boolean, default: true },
+    interviews: { type: Boolean, default: true },
+    referrals: { type: Boolean, default: true },
+  },
   
 }, { timestamps: true });
 

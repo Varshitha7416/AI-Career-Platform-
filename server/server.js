@@ -31,6 +31,11 @@ app.use('/api/resume-analysis', require('./routes/resumeAnalysisRoutes'));
 app.use('/api/resumes', require('./routes/resumeRoutes'));
 app.use('/api/cover-letters', require('./routes/coverLetterRoutes'));
 app.use('/api/referrals', require('./routes/referralRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/interviews', require('./routes/interviewRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/programs', require('./routes/programRoutes'));
+app.use('/api/contact', require('./routes/contactRoutes'));
 
 app.get('/', (req, res) => {
   res.send('AI Career Platform API is running');

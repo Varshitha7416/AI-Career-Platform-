@@ -5,6 +5,14 @@ import Home from './pages/Home';
 import Jobs from './pages/Jobs';
 import JobDetails from './pages/JobDetails';
 import Dashboard from './pages/Dashboard';
+import Applications from './pages/Applications';
+import ApplicationDetails from './pages/ApplicationDetails';
+import SavedJobs from './pages/SavedJobs';
+import Interviews from './pages/Interviews';
+import Programs from './pages/Programs';
+import ProgramDetails from './pages/ProgramDetails';
+import Settings from './pages/Settings';
+import Contact from './pages/Contact';
 import ResumeUpload from './pages/ResumeUpload';
 import CoverLetter from './pages/CoverLetter';
 import Referrals from './pages/Referrals';
@@ -44,6 +52,14 @@ function App() {
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
         <Route path="/jobs/:id" element={<Protected><JobDetails /></Protected>} />
         <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/saved-jobs" element={<Protected><SavedJobs /></Protected>} />
+        <Route path="/applications" element={<Protected><Applications /></Protected>} />
+        <Route path="/applications/:id" element={<Protected><ApplicationDetails /></Protected>} />
+        <Route path="/interviews" element={<Protected><Interviews /></Protected>} />
+        <Route path="/programs" element={<Protected><Programs /></Protected>} />
+        <Route path="/programs/:id" element={<Protected><ProgramDetails /></Protected>} />
+        <Route path="/settings" element={<Protected><Settings /></Protected>} />
+        <Route path="/contact" element={<Protected><Contact /></Protected>} />
         <Route path="/resume" element={<Protected><ResumeUpload /></Protected>} />
         <Route path="/cover-letter" element={<Protected><CoverLetter /></Protected>} />
         <Route path="/referrals" element={<Protected><Referrals /></Protected>} />

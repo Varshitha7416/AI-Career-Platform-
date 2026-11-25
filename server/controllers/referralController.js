@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Referral = require('../models/Referral');
+const { notify } = require('../utils/notify');
 const { isValidId, escapeRegex } = require('../middleware/validate');
 
 const DEFAULT_MESSAGE = "Hi, I'd love a referral at your company.";
@@ -49,6 +50,14 @@ const requestReferral = async (req, res, next) => {
     }
 
     const referral = await Referral.create({ seeker: req.user.id, referrer: referrerId, message });
+
+    const seeker = await User.findById(req.user.id).select('name');
+    await notify(referrerId, {
+      type: 'referral',
+      title: 'New referral request',
+      message: `${seeker?.name || 'Someone'} asked you for a referral`,
+      link: '/referrals',
+    });
     res.status(201).json({ message: 'Referral requested', referral });
   } catch (error) {
     next(error);
@@ -96,6 +105,14 @@ const updateReferralStatus = async (req, res, next) => {
     if (!updated) {
       return res.status(404).json({ message: 'Referral not found' });
     }
+
+    const referrer = await User.findById(req.user.id).select('name');
+    await notify(updated.seeker._id, {
+      type: 'referral',
+      title: `Referral ${status}`,
+      message: `${referrer?.name || 'Your referrer'} ${{ accepted: 'accepted your referral request', declined: 'declined your referral request', referred: 'has referred you' }[status]}`,
+      link: '/referrals',
+    });
 
     res.status(200).json({ message: 'Referral status updated', referral: updated });
   } catch (error) {

@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "seed": "node seed.js",
     "seed:demo-jobs": "node scripts/seed-demo-jobs.js",
+    "seed:programs": "node scripts/seed-programs.js",
     "maintenance:orphan-saved-jobs": "node scripts/cleanup-orphan-saved-jobs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -77,7 +77,7 @@ function Profile() {
         <div className="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">
           {(form?.name || stored?.name)?.[0]?.toUpperCase() || 'U'}
         </div>
-        <h2 className="text-xl font-semibold text-charcoal mb-1 text-center">{form?.name || stored?.name}</h2>
+        <h1 className="text-xl font-semibold text-charcoal mb-1 text-center">{form?.name || stored?.name}</h1>
         <p className="text-sm text-gray-500 mb-6 text-center">{email}</p>
 
         {loading ? (

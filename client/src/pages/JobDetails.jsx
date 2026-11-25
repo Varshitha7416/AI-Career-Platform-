@@ -107,7 +107,7 @@ function JobDetails() {
       <div className="hero-bg border-b border-sage/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-8">
           <button type="button" onClick={goBack} className="focus-ring inline-flex items-center gap-1.5 text-sm text-primary hover:underline rounded">
-            <ArrowLeft size={16} /> Back to jobs
+            <ArrowLeft size={16} /> Back to Job Discovery
           </button>
 
           {loading && (

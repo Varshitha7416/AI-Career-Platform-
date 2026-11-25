@@ -3,7 +3,7 @@ import { getUser } from '../utils/auth';
 
 const features = [
   { name: 'Job Discovery', desc: 'Search and save jobs that match your goals.', path: '/jobs', ai: false },
-  { name: 'Dashboard', desc: 'Track your saved jobs and applications.', path: '/dashboard', ai: false },
+  { name: 'Dashboard', desc: 'Your career overview: applications, interviews, activity and progress.', path: '/dashboard', ai: false },
   { name: 'Resume Analyzer', desc: 'Get AI feedback on your resume, general or job-specific.', path: '/resume', ai: true },
   { name: 'Cover Letter Generator', desc: 'Generate a tailored cover letter in seconds.', path: '/cover-letter', ai: true },
   { name: 'Referrals', desc: 'Find employees willing to refer you, or manage requests you receive.', path: '/referrals', ai: false },

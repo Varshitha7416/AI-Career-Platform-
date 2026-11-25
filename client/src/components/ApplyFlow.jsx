@@ -71,7 +71,7 @@ function ApplyFlow({ job, application, onApplied }) {
         <span className="inline-flex items-center gap-2 bg-mint text-primary rounded-xl px-4 py-2.5 text-sm font-medium">
           <CheckIcon size={16} /> Applied on {formatDate(application.appliedAt || application.createdAt)}
         </span>
-        <Link to="/dashboard" className="focus-ring text-sm text-primary underline">View in my tracker</Link>
+        <Link to="/applications" className="focus-ring text-sm text-primary underline">View in my tracker</Link>
       </div>
     );
   }
