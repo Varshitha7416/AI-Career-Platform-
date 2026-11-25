@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const { SAFE_SCRIPT_OPTIONS } = require('../config/dbOptions');
 const Referral = require('../models/Referral');
 
 const args = process.argv.slice(2);
@@ -42,7 +43,7 @@ const run = async () => {
     fail(`Refusing to connect to a REMOTE database. Set MAINTENANCE_ALLOW_REMOTE_DB=${target.dbName} to confirm.`);
   }
   console.log(APPLY ? 'Mode: APPLY (verified backup, then requested -> pending)' : 'Mode: DRY RUN (nothing will be written)');
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(process.env.MONGO_URI, SAFE_SCRIPT_OPTIONS); // never build indexes as a side effect of connecting
 
   const col = Referral.collection;
   const legacy = await col.find({ status: 'requested' }).toArray();

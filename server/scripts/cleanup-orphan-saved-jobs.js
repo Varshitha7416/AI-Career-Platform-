@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const { SAFE_SCRIPT_OPTIONS } = require('../config/dbOptions');
 const SavedJob = require('../models/SavedJob');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
@@ -128,7 +129,7 @@ const run = async () => {
   const target = assertSafeTarget();
   console.log(APPLY ? 'Mode: APPLY (will delete orphaned SavedJobs after a verified backup)' : 'Mode: DRY RUN (no changes will be made)');
 
-  await mongoose.connect(process.env.MONGO_URI);
+  await mongoose.connect(process.env.MONGO_URI, SAFE_SCRIPT_OPTIONS); // never build indexes as a side effect of connecting
 
   const savedOrphans = await findOrphans(SavedJob);
   const appOrphans = await findOrphans(Application);
