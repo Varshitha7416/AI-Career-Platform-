@@ -17,6 +17,7 @@ const PATHS = {
   user: <><circle cx="12" cy="8" r="3.6" /><path d="M5 20c0-4 3.1-6.5 7-6.5s7 2.5 7 6.5" /></>,
   seed: <><path d="M12 21v-9" /><path d="M12 13c0-4 2.5-6.5 7-7 .3 4.6-2.2 7-7 7Z" /><path d="M12 15c0-3-2-5-6-5.3-.2 3.6 1.8 5.3 6 5.3Z" /></>,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  target: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></>,
   mail: <><rect x="3.5" y="6" width="17" height="12" rx="2" /><path d="m4 8 8 6 8-6" /></>,
 };
 

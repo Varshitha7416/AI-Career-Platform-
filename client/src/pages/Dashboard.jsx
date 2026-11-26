@@ -10,6 +10,7 @@ import RecentApplications from '../components/dashboard/RecentApplications';
 import SavedJobsPreview from '../components/dashboard/SavedJobsPreview';
 import UpcomingInterviews from '../components/dashboard/UpcomingInterviews';
 import ProgramsPreview from '../components/dashboard/ProgramsPreview';
+import SkillGapCard from '../components/dashboard/SkillGapCard';
 import CareerTip from '../components/dashboard/CareerTip';
 import DashboardSkeleton from '../components/dashboard/DashboardSkeleton';
 
@@ -60,6 +61,8 @@ function Dashboard() {
           <SavedJobsPreview items={data.savedJobs} />
           <UpcomingInterviews items={data.upcomingInterviews} className="lg:col-span-2 xl:col-span-1" />
         </div>
+
+        <SkillGapCard />
 
         <ProgramsPreview items={data.programs} />
 

@@ -33,6 +33,7 @@ export const HomeIcon = make(<><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9
 export const DashboardIcon = make(<><rect x="3.5" y="3.5" width="7" height="8" rx="1.6" /><rect x="13.5" y="3.5" width="7" height="5" rx="1.6" /><rect x="13.5" y="11.5" width="7" height="9" rx="1.6" /><rect x="3.5" y="14.5" width="7" height="6" rx="1.6" /></>);
 export const ClipboardIcon = make(<><rect x="5" y="4.5" width="14" height="16.5" rx="2" /><path d="M9 4.5h6v2.2H9zM8.5 11h7M8.5 15h5" /></>);
 export const VideoIcon = make(<><rect x="3" y="6" width="12.5" height="12" rx="2" /><path d="m15.5 10.5 5-2.5v8l-5-2.5" /></>);
+export const SkillGapIcon = make(<><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /><path d="M12 3.5V1.5M12 22.5v-2M3.5 12h-2M22.5 12h-2" /></>);
 export const GraduationIcon = make(<><path d="m2.5 9 9.5-4.5L21.5 9 12 13.5 2.5 9Z" /><path d="M6.5 11.2v4.3c0 1.2 2.5 2.5 5.5 2.5s5.5-1.3 5.5-2.5v-4.3M21.5 9v5" /></>);
 export const FileTextIcon = make(<><path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5l-5-5Z" /><path d="M14 3.5v5h5M9 13h6M9 16.5h6" /></>);
 export const UserIcon = make(<><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20c.7-3.8 3.8-6 7.5-6s6.8 2.2 7.5 6" /></>);

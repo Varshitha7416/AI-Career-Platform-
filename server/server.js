@@ -45,6 +45,9 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/saved-jobs', require('./routes/savedJobRoutes'));
 app.use('/api/applications', require('./routes/applicationRoutes'));
+// Roadmap router first: its fixed paths (/overview, /compare, /roadmaps...) must win over the analysis router's /:id.
+app.use('/api/skill-gap', require('./routes/roadmapRoutes'));
+app.use('/api/skill-gap', require('./routes/skillGapRoutes'));
 app.use('/api/resume-analysis', require('./routes/resumeAnalysisRoutes'));
 app.use('/api/resumes', require('./routes/resumeRoutes'));
 app.use('/api/cover-letters', require('./routes/coverLetterRoutes'));

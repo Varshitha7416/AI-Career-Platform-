@@ -6,6 +6,7 @@ const PRODUCT_LINKS = [
   { to: '/jobs', label: 'Job Discovery' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/resume', label: 'Resume Analyzer' },
+  { to: '/skill-gap-analysis', label: 'Skill Gap Analysis' },
   { to: '/cover-letter', label: 'Cover Letter' },
   { to: '/referrals', label: 'Referrals' },
 ];

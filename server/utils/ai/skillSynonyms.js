@@ -200,7 +200,8 @@ const searchTerms = (skill) => {
 };
 
 const termRegex = (term) =>
-  new RegExp(`(?<![a-z0-9+#])${escapeRegex(term)}(?![a-z0-9+#])`, 'i');
+  // The second lookbehind stops an alias from matching as the suffix of a dotted name ("js" inside "Node.js").
+  new RegExp(`(?<![a-z0-9+#])(?<![a-z0-9]\\.)${escapeRegex(term)}(?![a-z0-9+#])`, 'i');
 
 // {alias, index} of the earliest alias of `skill` found in `text`, or null.
 const findSkillInText = (text, skill) => {

@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, BriefcaseIcon, FileIcon, PeopleIcon, CapIcon, UserCheckIcon, SparkleIcon, BookmarkFilled } from '../dashboard/DashIcons';
-import { DashboardIcon, MailIcon, ClipboardIcon, VideoIcon } from '../Icons';
+import { DashboardIcon, MailIcon, ClipboardIcon, VideoIcon, SkillGapIcon } from '../Icons';
 import { FEATURES } from './homeData';
 import { MiniJobs, MiniDashboard, MiniResume, MiniLetter, MiniPeople, MiniLeaves } from './HomeArt';
 
 const ICONS = {
-  jobs: BriefcaseIcon, dashboard: DashboardIcon, resume: FileIcon, letter: MailIcon, referrals: PeopleIcon,
+  jobs: BriefcaseIcon, dashboard: DashboardIcon, resume: FileIcon, letter: MailIcon, skillgap: SkillGapIcon, referrals: PeopleIcon,
   saved: BookmarkFilled, applications: ClipboardIcon, interviews: VideoIcon, programs: CapIcon, profile: UserCheckIcon,
 };
 const ART = { jobs: MiniJobs, dashboard: MiniDashboard, resume: MiniResume, letter: MiniLetter, people: MiniPeople };
@@ -19,7 +19,7 @@ function FeaturesSection() {
           <h2 id="home-features" className="mt-3 font-display text-3xl sm:text-4xl font-bold text-primary">Features You&rsquo;ll Love</h2>
           <p className="mt-2 text-sm sm:text-base text-ink/70">Everything you need to find jobs, stay organised and prepare your applications, with AI help where it counts.</p>
         </div>
-        <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {FEATURES.map((f) => {
             const Icon = ICONS[f.key];
             const Art = ART[f.art] || MiniLeaves;

@@ -236,6 +236,7 @@ function JobDetails() {
               <p className="text-xs text-ink/70 mb-3">Use CareerNest&apos;s AI tools with this job.</p>
               <div className="flex flex-col gap-2">
                 <Link to={`/resume?job=${job._id}`} className="focus-ring text-sm text-center bg-primary text-white rounded-xl py-2 hover:bg-primary-dark transition">Check my resume match</Link>
+                <Link to={`/skill-gap-analysis?job=${job._id}`} className="focus-ring text-sm text-center border border-primary text-primary rounded-xl py-2 hover:bg-white transition">Analyze my skill gap</Link>
                 <Link to={`/cover-letter?job=${job._id}`} className="focus-ring text-sm text-center border border-primary text-primary rounded-xl py-2 hover:bg-white transition">Write a cover letter</Link>
                 <Link to="/referrals" className="focus-ring text-sm text-center border border-sage text-primary rounded-xl py-2 hover:bg-white transition">Find a referral</Link>
               </div>

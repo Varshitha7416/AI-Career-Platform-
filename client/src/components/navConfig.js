@@ -1,6 +1,6 @@
 import {
   DashboardIcon, SearchIcon, BookmarkIcon, ClipboardIcon, VideoIcon, GraduationIcon,
-  FileTextIcon, MailIcon, HandshakeIcon, UserIcon, SettingsIcon,
+  FileTextIcon, MailIcon, HandshakeIcon, UserIcon, SettingsIcon, SkillGapIcon,
 } from './Icons';
 
 // Sidebar navigation. The job-search item reads "Find Jobs" in the sidebar (explicit product requirement);
@@ -21,6 +21,7 @@ export const NAV_GROUPS = [
     label: 'Career tools',
     items: [
       { to: '/resume', label: 'Resume AI', icon: FileTextIcon },
+      { to: '/skill-gap-analysis', label: 'Skill Gap Analysis', icon: SkillGapIcon },
       { to: '/cover-letter', label: 'Cover Letter', icon: MailIcon },
       { to: '/referrals', label: 'Referrals', icon: HandshakeIcon },
     ],
@@ -43,6 +44,7 @@ const PAGE_TITLES = [
   ['/interviews', 'Interviews'],
   ['/programs', 'Career Programs'],
   ['/resume', 'Resume AI'],
+  ['/skill-gap-analysis', 'Skill Gap Analysis'],
   ['/cover-letter', 'Cover Letter'],
   ['/referrals', 'Referrals'],
   ['/about', 'About'],

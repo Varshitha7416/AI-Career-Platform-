@@ -18,7 +18,37 @@ const aiError = (status, code, message) => {
 };
 
 // ---- Raw transport (the only place the SDK is touched). Replaceable for tests. ----
+// Test-only stub: active ONLY when NODE_ENV==='test' and GEMINI_TEST_FIXTURE points to a JSON file
+// ({"response": <object>} | {"responseText": "<raw>"} | {"error": {"status":429,"message":"..."}}).
+// Optional test knobs: "delayMs" (wait before answering, to force overlapping requests) and "failFirstCalls": N
+// (the first N calls overall, counted in "<file>.calls" and so shared by every process using the file, fail with 429).
+// Each call appends a line to "<file>.calls" and writes the prompt to "<file>.lastprompt".
+// Both conditions are required, so development, production and any normal run can never read a fixture.
+const fixtureActive = (env = process.env) => env.NODE_ENV === 'test' && !!env.GEMINI_TEST_FIXTURE;
+
+const fixtureGenerate = async (prompt) => {
+  const fs = require('fs');
+  const file = process.env.GEMINI_TEST_FIXTURE;
+  fs.appendFileSync(`${file}.calls`, `${prompt.length}\n`);
+  fs.writeFileSync(`${file}.lastprompt`, prompt);
+  const fx = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (fx.delayMs) await new Promise((r) => setTimeout(r, Number(fx.delayMs)));
+  const callNo = fs.readFileSync(`${file}.calls`, 'utf8').split('\n').filter(Boolean).length;
+  if (fx.failFirstCalls && callNo <= Number(fx.failFirstCalls)) {
+    const e = new Error('fixture: simulated quota error');
+    e.status = 429;
+    throw e;
+  }
+  if (fx.error) {
+    const e = new Error(fx.error.message || 'fixture error');
+    if (fx.error.status) e.status = fx.error.status;
+    throw e;
+  }
+  return typeof fx.responseText === 'string' ? fx.responseText : JSON.stringify(fx.response);
+};
+
 const sdkGenerate = async (prompt, { json, temperature, timeoutMs }) => {
+  if (fixtureActive()) return fixtureGenerate(prompt);
   client = client || new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const generationConfig = { temperature };
   if (json) generationConfig.responseMimeType = 'application/json';
@@ -195,5 +225,6 @@ module.exports = {
   MAX_PROMPT_CHARS,
   QUOTA_MESSAGE,
   _setRawGenerate,
+  _fixtureActive: fixtureActive,
   _setSleep,
 };

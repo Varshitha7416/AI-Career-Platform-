@@ -31,7 +31,7 @@ export default function ConfirmDialog({ title, children, confirmLabel, cancelLab
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`focus-ring px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'}`}
+            className={`focus-ring px-4 py-2 rounded-lg text-sm text-white disabled:opacity-50 ${danger ? 'bg-red-600 hover:bg-red-700 dark:text-[#2A1013]' : 'bg-primary hover:bg-primary-dark'}`}
           >
             {busy ? 'Working...' : confirmLabel}
           </button>

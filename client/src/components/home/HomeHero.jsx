@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, BriefcaseIcon, FileIcon, PeopleIcon } from '../dashboard/DashIcons';
-import { DashboardIcon, MailIcon } from '../Icons';
+import { DashboardIcon, MailIcon, SkillGapIcon } from '../Icons';
 import { SHORTCUTS, MORE_LINKS } from './homeData';
 import { HeroScene } from './HomeArt';
 
-const ICONS = { jobs: BriefcaseIcon, dashboard: DashboardIcon, resume: FileIcon, letter: MailIcon, referrals: PeopleIcon };
+const ICONS = { jobs: BriefcaseIcon, dashboard: DashboardIcon, resume: FileIcon, letter: MailIcon, skillgap: SkillGapIcon, referrals: PeopleIcon };
 const HAND = '"Segoe Script", "Bradley Hand", "Lucida Handwriting", "Brush Script MT", cursive';
 
 function HomeHero({ firstName }) {

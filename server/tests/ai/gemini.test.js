@@ -117,3 +117,13 @@ test('oversized prompt is rejected before any call', async () => {
   await assert.rejects(g.generateJSON('x'.repeat(g.MAX_PROMPT_CHARS + 1)), (e) => e.status === 413);
   assert.equal(calls.length, 0);
 });
+
+test('test-only fixture hook is active only when NODE_ENV is exactly "test" AND a fixture path is set', () => {
+  const { _fixtureActive } = require('../../config/gemini');
+  assert.equal(_fixtureActive({ NODE_ENV: 'test', GEMINI_TEST_FIXTURE: '/x.json' }), true);
+  assert.equal(_fixtureActive({ NODE_ENV: 'test' }), false);
+  assert.equal(_fixtureActive({ GEMINI_TEST_FIXTURE: '/x.json' }), false);
+  for (const env of ['production', 'development', 'Test', 'staging', '']) {
+    assert.equal(_fixtureActive({ NODE_ENV: env, GEMINI_TEST_FIXTURE: '/x.json' }), false, `NODE_ENV=${env}`);
+  }
+});

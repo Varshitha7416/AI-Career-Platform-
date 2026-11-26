@@ -7,6 +7,7 @@ import SiteFooter from '../components/site/SiteFooter';
 const OFFERS = [
   { to: '/jobs', icon: 'search', title: 'Job Discovery', text: 'Search and filter listings by role, city, work mode, type, experience and salary, then save the ones you like.' },
   { to: '/resume', icon: 'resume', title: 'Resume Analyzer', text: 'Upload a resume and get AI feedback on strengths, missing skills and suggestions, in general or against a specific job.' },
+  { to: '/skill-gap-analysis', icon: 'target', title: 'Skill Gap Analysis', text: 'Compare your resume or the skills you enter against a target role or job, then follow an AI-written learning roadmap and track your progress.' },
   { to: '/cover-letter', icon: 'letter', title: 'Cover Letter Generator', text: 'Draft a cover letter for a job from your resume with AI, then edit it and export it.' },
   { to: '/dashboard', icon: 'chart', title: 'Dashboard', text: 'See your applications, upcoming interviews and profile progress at a glance, based on your own activity.' },
   { to: '/applications', icon: 'tracker', title: 'Application Tracker', text: 'Record where you applied and move each application through applied, interviewing, offer or rejected.' },
@@ -16,7 +17,7 @@ const OFFERS = [
 ];
 
 const WHY = [
-  { icon: 'brain', title: 'AI where it helps', text: 'AI powers resume analysis and cover letters. Job recommendations are rule-based, using your target role, resume skills and preferences, so you can see why a job was suggested.' },
+  { icon: 'brain', title: 'AI where it helps', text: 'AI powers resume analysis, skill gap explanations, learning roadmaps and cover letters. Job recommendations are rule-based, using your target role, resume skills and preferences, so you can see why a job was suggested.' },
   { icon: 'grid', title: 'Tools in one place', text: 'Discovery, resume feedback, applications, interviews and referrals share one account, so nothing lives in scattered spreadsheets.' },
   { icon: 'user', title: 'Personalised to you', text: 'Your profile, role and resume shape what you are shown and how your progress is measured.' },
   { icon: 'seed', title: 'For freshers and experienced professionals', text: 'Listings and filters cover entry-level through senior experience ranges.' },

@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Contact from './pages/Contact';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
 import CoverLetter from './pages/CoverLetter';
+import SkillGapAnalysis from './pages/SkillGapAnalysis';
 import Referrals from './pages/Referrals';
 import ReferralFind from './pages/ReferralFind';
 import ReferralDetails from './pages/ReferralDetails';
@@ -65,6 +66,7 @@ function App() {
         <Route path="/settings" element={<Protected><Settings /></Protected>} />
         <Route path="/contact" element={<Protected><Contact /></Protected>} />
         <Route path="/resume" element={<Protected><ResumeAnalyzer /></Protected>} />
+        <Route path="/skill-gap-analysis" element={<Protected><SkillGapAnalysis /></Protected>} />
         <Route path="/cover-letter" element={<Protected><CoverLetter /></Protected>} />
         <Route path="/referrals" element={<Protected><Referrals /></Protected>} />
         <Route path="/referrals/find" element={<Protected><ReferralFind /></Protected>} />
