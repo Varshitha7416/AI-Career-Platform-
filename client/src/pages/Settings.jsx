@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import useTheme from '../hooks/useTheme';
-import { updateStoredUser } from '../utils/auth';
+import { updateStoredUser, getUser } from '../utils/auth';
 import { getErrorMessage } from '../utils/errors';
 import { Skeleton, ErrorMessage, SuccessMessage } from '../components/Feedback';
 import { CheckIcon } from '../components/Icons';
+import AccountDataSection from '../components/account/AccountDataSection';
+import SecuritySection from '../components/account/SecuritySection';
+import PrivacyNotice from '../components/account/PrivacyNotice';
 
 const THEMES = [
   { value: 'light', label: 'Light', hint: 'Bright cream and mint surfaces' },
@@ -17,7 +20,11 @@ const PREFS = [
   { key: 'applications', label: 'Applications', hint: 'When an application is added or its status changes' },
   { key: 'interviews', label: 'Interviews', hint: 'When an interview is scheduled, rescheduled or cancelled' },
   { key: 'referrals', label: 'Referrals', hint: 'When someone requests a referral or answers yours' },
+  { key: 'programs', label: 'Career programs', hint: 'When you save, start or complete a program' },
+  { key: 'reminders', label: 'Reminders', hint: 'Reminders about interviews, applications and follow-ups' },
+  { key: 'support', label: 'Support replies', hint: 'When the CareerNest team replies to your contact request' },
 ];
+const DEFAULT_PREFS = Object.fromEntries(PREFS.map((p) => [p.key, true]));
 
 function Toggle({ checked, onChange, label, disabled }) {
   return (
@@ -48,7 +55,7 @@ function Card({ title, subtitle, children }) {
 function Settings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [user, setUser] = useState(null);
-  const [prefs, setPrefs] = useState({ applications: true, interviews: true, referrals: true });
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [unread, setUnread] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,7 +71,7 @@ function Settings() {
         axiosClient.get('/notifications', { params: { limit: 1 } }).catch(() => null),
       ]);
       setUser(me.data.user);
-      setPrefs({ applications: true, interviews: true, referrals: true, ...(me.data.user.notificationPrefs || {}) });
+      setPrefs({ ...DEFAULT_PREFS, ...(me.data.user.notificationPrefs || {}) });
       setUnread(notes ? notes.data.unreadCount : null);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load your settings'));
@@ -91,8 +98,9 @@ function Settings() {
     setSavingKey(key);
     setFeedback(null);
     try {
-      const res = await axiosClient.put('/auth/profile', { notificationPrefs: next });
-      updateStoredUser(res.data.user);
+      const res = await axiosClient.put('/auth/profile', { notificationPrefs: { [key]: value } });
+      setPrefs({ ...DEFAULT_PREFS, ...(res.data.user.notificationPrefs || {}) });
+      updateStoredUser({ ...(getUser() || {}), ...res.data.user, resumeSummary: undefined });
       setFeedback({ type: 'success', text: 'Notification preferences saved.' });
     } catch (err) {
       setPrefs(previous);
@@ -177,14 +185,24 @@ function Settings() {
           </div>
         </Card>
 
-        <Card title="Account" subtitle="Update your name, job preferences and password from your profile.">
+        <Card title="Account" subtitle="Your sign-in email and profile. Names, career interests, resumes and job preferences are edited on your profile.">
           {loading ? <Skeleton className="h-16" /> : user && (
             <dl className="text-sm grid sm:grid-cols-2 gap-4">
               <div><dt className="text-ink/60">Name</dt><dd className="font-medium text-ink">{user.name}</dd></div>
               <div><dt className="text-ink/60">Email</dt><dd className="font-medium text-ink break-all">{user.email}</dd></div>
+              <div><dt className="text-ink/60">Email status</dt><dd className="font-medium text-ink">{user.emailVerified ? 'Verified' : 'Not verified'}</dd></div>
             </dl>
           )}
           <Link to="/profile" className="focus-ring inline-block mt-4 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition">Edit profile</Link>
+        </Card>
+
+        <Card title="Security" subtitle="Verify your email and keep your password up to date.">
+          {loading ? <Skeleton className="h-24" /> : user && <SecuritySection user={user} onVerifiedChange={(v) => setUser((u) => ({ ...u, emailVerified: v }))} />}
+        </Card>
+
+        <Card title="Your data and privacy" subtitle="Export your data, end all sessions, or close your account.">
+          <AccountDataSection />
+          <PrivacyNotice />
         </Card>
       </div>
     </div>

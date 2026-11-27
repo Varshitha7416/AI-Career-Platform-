@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
-import { BellIcon, BriefcaseIcon, CalendarIcon, UsersIcon, InfoIcon, CheckIcon } from './Icons';
+import { BellIcon, BriefcaseIcon, CalendarIcon, UsersIcon, InfoIcon, CheckIcon, GraduationIcon } from './Icons';
 
 const POLL_MS = 60000;
 // Other pages can call window.dispatchEvent(new Event('careernest:notifications-changed')) to refresh the bell.
 const NOTIFICATIONS_CHANGED_EVENT = 'careernest:notifications-changed';
 
-const TYPE_ICON = { application: BriefcaseIcon, interview: CalendarIcon, referral: UsersIcon, system: InfoIcon };
+const TYPE_ICON = { application: BriefcaseIcon, interview: CalendarIcon, referral: UsersIcon, program: GraduationIcon, system: InfoIcon };
 
 function relativeTime(iso) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);

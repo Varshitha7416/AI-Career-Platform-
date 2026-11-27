@@ -1,6 +1,6 @@
 import {
   DashboardIcon, SearchIcon, BookmarkIcon, ClipboardIcon, VideoIcon, GraduationIcon,
-  FileTextIcon, MailIcon, HandshakeIcon, UserIcon, SettingsIcon, SkillGapIcon,
+  FileTextIcon, MailIcon, HandshakeIcon, UserIcon, SettingsIcon, SkillGapIcon, BriefcaseIcon,
 } from './Icons';
 
 // Sidebar navigation. The job-search item reads "Find Jobs" in the sidebar (explicit product requirement);
@@ -35,6 +35,12 @@ export const NAV_GROUPS = [
   },
 ];
 
+// Shown only to admins (display convenience; the /admin routes and APIs re-check the role on the server).
+export const ADMIN_GROUP = {
+  label: 'Administration',
+  items: [{ to: '/admin', label: 'Admin', icon: BriefcaseIcon }],
+};
+
 // Longest matching prefix wins. The dashboard has its own greeting, so it shows no page title in the top bar.
 const PAGE_TITLES = [
   ['/home', 'Home'],
@@ -50,6 +56,7 @@ const PAGE_TITLES = [
   ['/about', 'About'],
   ['/profile', 'Profile'],
   ['/settings', 'Settings'],
+  ['/admin', 'Admin'],
   ['/contact', 'Contact Us'],
   ['/terms', 'Terms of Service'],
   ['/privacy', 'Privacy Policy'],
@@ -57,6 +64,7 @@ const PAGE_TITLES = [
 
 const DETAIL_TITLES = {
   '/jobs/': 'Job Details',
+  '/admin/jobs/': 'Admin: Job',
   '/applications/': 'Application Details',
   '/programs/': 'Program Details',
   '/referrals/': 'Referral Details',
@@ -65,6 +73,7 @@ const DETAIL_TITLES = {
 export function pageTitleFor(pathname) {
   if (pathname === '/dashboard') return '';
   if (pathname === '/referrals/find') return 'Find People';
+  if (pathname === '/programs/mine') return 'My Programs';
   for (const [prefix, title] of Object.entries(DETAIL_TITLES)) {
     if (pathname.startsWith(prefix) && pathname.length > prefix.length) return title;
   }

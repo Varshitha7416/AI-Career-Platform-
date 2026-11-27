@@ -48,6 +48,9 @@ function ResumeAnalyzer() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
   const [compareIds, setCompareIds] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPages, setHistoryPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const resultsRef = useRef(null);
 
@@ -55,14 +58,39 @@ function ResumeAnalyzer() {
     setHistoryLoading(true);
     setHistoryError('');
     try {
-      const res = await axiosClient.get('/resume-analysis');
+      const res = await axiosClient.get('/resume-analysis', { params: { limit: 20 } });
       setHistory(res.data.analyses || []);
+      setHistoryPage(1);
+      setHistoryPages(res.data.pages || 1);
     } catch (err) {
       setHistoryError(getErrorMessage(err, 'Could not load your analysis history.'));
     } finally {
       setHistoryLoading(false);
     }
   }, []);
+
+  const loadMoreHistory = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await axiosClient.get('/resume-analysis', { params: { limit: 20, page: historyPage + 1 } });
+      setHistory((prev) => [...prev, ...(res.data.analyses || []).filter((n) => !prev.some((p) => p._id === n._id))]);
+      setHistoryPage(historyPage + 1);
+      setHistoryPages(res.data.pages || historyPage + 1);
+    } catch (err) {
+      setHistoryError(getErrorMessage(err, 'Could not load more analyses.'));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Re-run an analysis setup from history: reselects the same resume (and job when it still exists) without calling the AI.
+  const reuseFromHistory = (a) => {
+    if (!a.resume?._id) return;
+    setResumeId(a.resume._id);
+    setJobId(a.job?._id || '');
+    setNotice('Resume and job selected from your history. Press Analyze to run a new analysis.');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount
@@ -240,6 +268,10 @@ function ResumeAnalyzer() {
             onOpen={(id) => openAnalysis(id)}
             onDeleted={handleDeleted}
             onCompare={setCompareIds}
+            onReuse={reuseFromHistory}
+            hasMore={historyPage < historyPages}
+            loadingMore={loadingMore}
+            onLoadMore={loadMoreHistory}
           />
         </div>
       </div>

@@ -4,6 +4,7 @@ import axiosClient from '../../api/axiosClient';
 import { FileTextIcon, CloseIcon } from '../Icons';
 import { Skeleton } from '../Feedback';
 import ModalShell from '../interviews/ModalShell';
+import ResumePreviewModal from '../resume/ResumePreviewModal';
 import { validateResumeFile, formatSize, formatDate } from '../resume/resumeUtils';
 import { SectionCard } from './ui';
 import { btnGhost, parseApiError } from './formKit';
@@ -30,6 +31,8 @@ function ResumesSection({ user, version, onChanged }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [previewing, setPreviewing] = useState(null);
+  const closePreview = useCallback(() => setPreviewing(null), []);
   const fileRef = useRef(null);
   const pendingRole = useRef(null);
 
@@ -239,6 +242,7 @@ function ResumesSection({ user, version, onChanged }) {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1 mt-2 text-xs">
+                    <button type="button" onClick={() => setPreviewing(r)} className="focus-ring px-3 py-2 rounded-lg text-primary hover:bg-mint">Preview</button>
                     {!r.isDefault && <button type="button" onClick={() => makeDefault(r)} disabled={Boolean(busy)} className="focus-ring px-3 py-2 rounded-lg text-primary hover:bg-mint disabled:opacity-50">Set as default</button>}
                     {r.roleAssigned && <button type="button" onClick={() => assign(r, null)} disabled={Boolean(busy)} className="focus-ring px-3 py-2 rounded-lg text-primary hover:bg-mint disabled:opacity-50">Unassign</button>}
                     <button type="button" onClick={() => askDelete(r)} disabled={Boolean(busy)} className="focus-ring px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50">Delete</button>
@@ -250,6 +254,8 @@ function ResumesSection({ user, version, onChanged }) {
           <p className="text-xs text-ink/55 mt-3">You always keep at least one resume: the last remaining resume cannot be deleted. Upload another first.</p>
         </>
       )}
+
+      {previewing && <ResumePreviewModal resume={previewing} onClose={closePreview} />}
 
       {deleting && (
         <ModalShell title="Delete this resume?" onClose={() => setDeleting(null)} labelId="profile-delete-resume">

@@ -27,7 +27,7 @@ function PageLeaf({ className = '', flip = false }) {
 }
 
 // Shared two-column card: form on the left, illustration on the right (hidden on phones, shortened on tablets).
-export default function AuthShell({ children }) {
+export default function AuthShell({ children, title = 'Your career journey, all in one nest.', subtitle = "Discover opportunities, strengthen your profile, and prepare for what's next with AI." }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-bg bg-gradient-to-br from-mint/80 via-bg to-sage/30 px-3 py-6 sm:px-6 sm:py-10 lg:flex lg:items-center lg:justify-center lg:px-10">
       <PageLeaf className="pointer-events-none absolute -left-8 top-1/3 hidden h-56 opacity-25 xl:block" />
@@ -41,10 +41,10 @@ export default function AuthShell({ children }) {
               <span className="font-display text-[26px] font-semibold leading-none text-primary">CareerNest</span>
             </div>
             <h1 className="mt-6 font-display text-[26px] font-semibold leading-tight text-balance text-primary sm:text-[30px]">
-              Your career journey, all in one nest.
+              {title}
             </h1>
             <p className="mt-2 text-[15px] leading-relaxed text-gray-600">
-              Discover opportunities, strengthen your profile, and prepare for what's next with AI.
+              {subtitle}
             </p>
             <div className="mt-6">{children}</div>
           </div>

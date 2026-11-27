@@ -10,12 +10,15 @@ import { fetchApplications } from '../utils/dashboard';
 
 const TABS = [
   { key: 'upcoming', label: 'Upcoming' },
-  { key: 'past', label: 'Past' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'past', label: 'All past' },
 ];
 
 function Interviews() {
   const [tab, setTab] = useState('upcoming');
   const [interviews, setInterviews] = useState([]);
+  const [counts, setCounts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState(null);
@@ -32,6 +35,7 @@ function Interviews() {
     try {
       const res = await axiosClient.get('/interviews', { params: { filter: tab } });
       setInterviews(res.data.interviews || []);
+      setCounts(res.data.counts || null);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load your interviews'));
     } finally {
@@ -76,6 +80,11 @@ function Interviews() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleChecklist = (interview, index) => {
+    const list = interview.prepChecklist.map((c, i) => (i === index ? { ...c, done: !c.done } : c));
+    return patch(interview, { prepChecklist: list }, 'Checklist updated.');
   };
 
   const remove = async (interview, confirmed) => {
@@ -130,7 +139,7 @@ function Interviews() {
             onClick={() => setTab(t.key)}
             className={`focus-ring text-sm px-4 py-1.5 rounded-full border transition ${tab === t.key ? 'bg-primary text-white border-primary' : 'bg-white border-sage/60 text-primary hover:bg-mint'}`}
           >
-            {t.label}
+            {t.label}{counts ? <span className="opacity-70"> ({counts[t.key] ?? 0})</span> : null}
           </button>
         ))}
       </div>
@@ -139,8 +148,8 @@ function Interviews() {
         <div className="space-y-4" aria-label="Loading interviews"><Skeleton className="h-40" /><Skeleton className="h-40" /></div>
       ) : !error && interviews.length === 0 ? (
         <EmptyState
-          title={tab === 'upcoming' ? 'No upcoming interviews' : 'No past interviews'}
-          hint={tab === 'upcoming' ? 'When an interview is confirmed, schedule it here so you never miss it.' : 'Completed, cancelled and earlier interviews will appear here.'}
+          title={tab === 'upcoming' ? 'No upcoming interviews' : `No ${tab === 'past' ? 'past' : tab} interviews`}
+          hint={tab === 'upcoming' ? 'When an interview is confirmed, schedule it here so you never miss it.' : 'Interviews you complete, cancel or let pass will appear here.'}
         >
           {tab === 'upcoming' && <Link to="/applications" className="text-primary underline text-sm">Go to my applications</Link>}
         </EmptyState>
@@ -156,6 +165,7 @@ function Interviews() {
               onComplete={(iv) => patch(iv, { status: 'completed' }, 'Interview marked as completed.')}
               onCancel={(iv) => setCancelTarget(iv)}
               onDelete={remove}
+              onChecklistToggle={toggleChecklist}
             />
           ))}
         </div>
@@ -166,7 +176,7 @@ function Interviews() {
           interview={cancelTarget}
           busy={busy}
           onClose={() => setCancelTarget(null)}
-          onConfirm={async () => { await patch(cancelTarget, { status: 'cancelled' }, 'Interview cancelled. You can restore it from Past with Reschedule.'); setCancelTarget(null); }}
+          onConfirm={async () => { await patch(cancelTarget, { status: 'cancelled' }, 'Interview cancelled. You can restore it from Cancelled with Reschedule.'); setCancelTarget(null); }}
         />
       )}
 

@@ -112,7 +112,7 @@ const SECTIONS = [
     body: (
       <>
         <p>You can stop using CareerNest at any time and log out. CareerNest may restrict or close accounts that break these terms.</p>
-        <p>There is currently no self-service button to delete your whole account. You can delete individual items yourself (see the Privacy Policy), and you can ask us to handle a broader request through the <Link to="/contact">Contact page</Link>.</p>
+        <p>You can delete your whole account yourself from Settings &rarr; Account Data, and you can delete individual items too. The <Link to="/privacy">Privacy Policy</Link> explains what is removed and what is kept. For anything the app does not cover, use the <Link to="/contact">Contact page</Link>.</p>
       </>
     ),
   },

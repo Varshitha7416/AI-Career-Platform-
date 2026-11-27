@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Home from './pages/Home';
 import Jobs from './pages/Jobs';
 import JobDetails from './pages/JobDetails';
@@ -13,6 +16,9 @@ import Programs from './pages/Programs';
 import ProgramDetails from './pages/ProgramDetails';
 import Settings from './pages/Settings';
 import Contact from './pages/Contact';
+import ContactHistory from './pages/ContactHistory';
+import AdminSupport from './pages/AdminSupport';
+import AdminSupportDetail from './pages/AdminSupportDetail';
 import ResumeAnalyzer from './pages/ResumeAnalyzer';
 import CoverLetter from './pages/CoverLetter';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
@@ -21,6 +27,13 @@ import ReferralFind from './pages/ReferralFind';
 import ReferralDetails from './pages/ReferralDetails';
 import About from './pages/About';
 import Profile from './pages/Profile';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminJobs from './pages/AdminJobs';
+import AdminJobForm from './pages/AdminJobForm';
+import AdminCompanies from './pages/AdminCompanies';
+import AdminPrograms from './pages/AdminPrograms';
+import MyPrograms from './pages/MyPrograms';
+import AdminRoute from './components/AdminRoute';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -31,6 +44,14 @@ function Protected({ children }) {
   return (
     <ProtectedRoute>
       <Layout>{children}</Layout>
+    </ProtectedRoute>
+  );
+}
+
+function AdminProtected({ children }) {
+  return (
+    <ProtectedRoute>
+      <Layout><AdminRoute>{children}</AdminRoute></Layout>
     </ProtectedRoute>
   );
 }
@@ -53,6 +74,9 @@ function App() {
         <Route path="/" element={<Navigate to={isLoggedIn() ? '/home' : '/login'} replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/home" element={<Protected><Home /></Protected>} />
         <Route path="/jobs" element={<Protected><Jobs /></Protected>} />
         <Route path="/jobs/:id" element={<Protected><JobDetails /></Protected>} />
@@ -62,9 +86,12 @@ function App() {
         <Route path="/applications/:id" element={<Protected><ApplicationDetails /></Protected>} />
         <Route path="/interviews" element={<Protected><Interviews /></Protected>} />
         <Route path="/programs" element={<Protected><Programs /></Protected>} />
+        <Route path="/programs/mine" element={<Protected><MyPrograms /></Protected>} />
         <Route path="/programs/:id" element={<Protected><ProgramDetails /></Protected>} />
         <Route path="/settings" element={<Protected><Settings /></Protected>} />
         <Route path="/contact" element={<Protected><Contact /></Protected>} />
+        <Route path="/contact/history" element={<Protected><ContactHistory /></Protected>} />
+        <Route path="/contact/history/:id" element={<Protected><ContactHistory /></Protected>} />
         <Route path="/resume" element={<Protected><ResumeAnalyzer /></Protected>} />
         <Route path="/skill-gap-analysis" element={<Protected><SkillGapAnalysis /></Protected>} />
         <Route path="/cover-letter" element={<Protected><CoverLetter /></Protected>} />
@@ -73,6 +100,14 @@ function App() {
         <Route path="/referrals/:id" element={<Protected><ReferralDetails /></Protected>} />
         <Route path="/about" element={<Protected><About /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
+        <Route path="/admin" element={<AdminProtected><AdminDashboard /></AdminProtected>} />
+        <Route path="/admin/jobs" element={<AdminProtected><AdminJobs /></AdminProtected>} />
+        <Route path="/admin/jobs/new" element={<AdminProtected><AdminJobForm /></AdminProtected>} />
+        <Route path="/admin/jobs/:id" element={<AdminProtected><AdminJobForm /></AdminProtected>} />
+        <Route path="/admin/companies" element={<AdminProtected><AdminCompanies /></AdminProtected>} />
+        <Route path="/admin/programs" element={<AdminProtected><AdminPrograms /></AdminProtected>} />
+        <Route path="/admin/support" element={<AdminProtected><AdminSupport /></AdminProtected>} />
+        <Route path="/admin/support/:id" element={<AdminProtected><AdminSupportDetail /></AdminProtected>} />
         {/* Public: readable logged in (shared Layout) and logged out (LegalPage picks its own shell). */}
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

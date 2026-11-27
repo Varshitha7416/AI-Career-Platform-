@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ClockIcon } from '../Icons';
+import ProgressBar from './ProgressBar';
 import { PROGRAM_THEMES, ENROLLMENT_META } from '../../utils/dashboard';
 
 // Themed visual header (palette colours + leaf motif) shared by the card and the details page.
@@ -34,6 +35,12 @@ function ProgramCard({ program }) {
           <span className="px-2.5 py-1 rounded-full bg-mint text-primary font-medium">{program.level}</span>
           <span className="inline-flex items-center gap-1"><ClockIcon size={13} /> {program.duration}</span>
         </div>
+        {program.enrollment === 'in-progress' && Number.isInteger(program.enrollmentProgress) && (
+          <div className="mt-3">
+            <div className="flex justify-between text-xs text-ink/70 mb-1"><span>Progress</span><span>{program.enrollmentProgress}%</span></div>
+            <ProgressBar value={program.enrollmentProgress} label={`Progress for ${program.title}`} />
+          </div>
+        )}
         <Link to={`/programs/${program.id || program._id}`} className="focus-ring mt-auto pt-4 text-sm font-medium text-primary hover:underline self-start">
           Learn more →
         </Link>

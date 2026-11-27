@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronLeft } from './Icons';
-import { NAV_GROUPS } from './navConfig';
+import { NAV_GROUPS, ADMIN_GROUP } from './navConfig';
+import { getUser } from '../utils/auth';
 
 // Soft botanical decoration for the bottom of the panel.
 function LeafDecor() {
@@ -47,6 +48,7 @@ function Sidebar() {
   const [pinned, setPinned] = useState(false);
   const [suppress, setSuppress] = useState(false); // after un-pinning while the pointer is still over it, stay closed
   const wrapRef = useRef(null);
+  const groups = getUser()?.role === 'admin' ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
   const expanded = pinned || (hover && !suppress);
 
   const toggle = useCallback(() => {
@@ -147,7 +149,7 @@ function Sidebar() {
         </div>
 
         <nav aria-label="Primary" className="relative z-10 flex-1 overflow-y-auto px-3 pb-6 pt-1">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.label} className="mt-4 first:mt-1">
               <p className="px-3.5 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-leaf-muted/80">{group.label}</p>
               <ul className="space-y-1">

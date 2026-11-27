@@ -3,15 +3,16 @@ import axiosClient from '../../api/axiosClient';
 import { getErrorMessage } from '../../utils/errors';
 import { ErrorMessage, EmptyState, Skeleton } from '../Feedback';
 import ModalShell from '../interviews/ModalShell';
+import ExportPdfButton from './ExportPdfButton';
 import { formatDateTime, snapshotJobLabel, snapshotResumeName } from './resumeUtils';
 
 const scoreOf = (a) => (typeof a.overallScore === 'number' ? a.overallScore : null);
 
 /**
  * Analysis history list. Props: analyses (summaries), loading, error, onRetry, activeId,
- * onOpen(id), onDeleted(id), onCompare([idA, idB]).
+ * onOpen(id), onDeleted(id), onCompare([olderId, newerId]), onReuse(analysis) (optional), hasMore, loadingMore, onLoadMore.
  */
-function AnalysisHistory({ analyses, loading, error, onRetry, activeId, onOpen, onDeleted, onCompare }) {
+function AnalysisHistory({ analyses, loading, error, onRetry, activeId, onOpen, onDeleted, onCompare, onReuse, hasMore, loadingMore, onLoadMore }) {
   const [resumeFilter, setResumeFilter] = useState('');
   const [picked, setPicked] = useState([]);
   const [deleting, setDeleting] = useState(null);
@@ -71,7 +72,7 @@ function AnalysisHistory({ analyses, loading, error, onRetry, activeId, onOpen, 
             <button
               type="button"
               disabled={picked.length !== 2}
-              onClick={() => onCompare(picked)}
+              onClick={() => onCompare([...picked].sort((x, y) => new Date(analyses.find((a) => a._id === x)?.createdAt) - new Date(analyses.find((a) => a._id === y)?.createdAt)))}
               className="focus-ring text-sm px-4 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
             >
               Compare selected ({picked.length}/2)
@@ -116,19 +117,33 @@ function AnalysisHistory({ analyses, loading, error, onRetry, activeId, onOpen, 
                     {a.jobDeleted && <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Job removed</span>}
                   </span>
                   <span className="block text-xs text-ink/60 mt-0.5 truncate">
-                    {snapshotResumeName(a)}{a.resumeDeleted ? ' (resume deleted)' : ''} &middot; {formatDateTime(a.createdAt)}
+                    {a.resumeDeleted ? `${snapshotResumeName(a)} (Resume no longer available)` : snapshotResumeName(a)} &middot; {formatDateTime(a.createdAt)}
                   </span>
                 </button>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold text-primary">{scoreOf(a) !== null ? scoreOf(a) : '--'}<span className="text-[11px] font-normal text-ink/50"> readiness</span></p>
                   {typeof a.matchPercentage === 'number' && <p className="text-xs text-ink/70">{a.matchPercentage}% match</p>}
-                  <button type="button" onClick={() => setDeleting(a)} className="focus-ring text-xs text-red-600 hover:bg-red-50 rounded px-1.5 py-0.5 mt-1">Delete</button>
+                  <div className="flex flex-wrap justify-end gap-1 mt-1">
+                    {onReuse && !a.resumeDeleted && (
+                      <button type="button" onClick={() => onReuse(a)} className="focus-ring text-xs text-primary hover:bg-mint rounded px-1.5 py-0.5">Analyze again</button>
+                    )}
+                    <ExportPdfButton id={a._id} label="PDF" className="text-xs px-1.5 py-0.5 border-transparent" />
+                    <button type="button" onClick={() => setDeleting(a)} className="focus-ring text-xs text-red-600 hover:bg-red-50 rounded px-1.5 py-0.5">Delete</button>
+                  </div>
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {hasMore && !loading && !error && (
+        <div className="mt-3 text-center">
+          <button type="button" onClick={onLoadMore} disabled={loadingMore} className="focus-ring text-sm px-4 py-2 rounded-lg border border-sage/60 text-primary hover:bg-mint disabled:opacity-50">
+            {loadingMore ? 'Loading...' : 'Load older analyses'}
+          </button>
+        </div>
+      )}
 
       {deleting && (
         <ModalShell title="Delete this analysis?" onClose={() => setDeleting(null)} labelId="delete-analysis-title">

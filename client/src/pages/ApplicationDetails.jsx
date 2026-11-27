@@ -1,20 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { getErrorMessage } from '../utils/errors';
 import CompanyLogo from '../components/CompanyLogo';
 import StatusPill from '../components/applications/StatusPill';
 import StatusTimeline from '../components/applications/StatusTimeline';
+import TrackerPanel from '../components/applications/TrackerPanel';
+import EditApplicationModal from '../components/applications/EditApplicationModal';
 import InterviewCard from '../components/interviews/InterviewCard';
 import InterviewForm from '../components/interviews/InterviewForm';
 import CancelInterviewDialog from '../components/interviews/CancelInterviewDialog';
 import { Skeleton, ErrorMessage, SuccessMessage, EmptyState } from '../components/Feedback';
 import { ArrowLeft, ExternalIcon } from '../components/Icons';
-import { STATUS_OPTIONS, STATUS_META, formatDate, formatDateTime } from '../utils/dashboard';
+import { STATUS_OPTIONS, STATUS_META, DANGER_OUTLINE, DANGER_FILLED_STYLE, formatDate, formatDateTime } from '../utils/dashboard';
 import { formatLocation, formatExperience } from '../utils/jobs';
 
 function ApplicationDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [app, setApp] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,6 +27,8 @@ function ApplicationDetails() {
   const [busy, setBusy] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +83,11 @@ function ApplicationDetails() {
     }
   };
 
+  const toggleChecklist = (interview, index) => {
+    const list = (interview.prepChecklist || []).map((c, i) => (i === index ? { ...c, done: !c.done } : c));
+    return interviewAction(interview, { prepChecklist: list }, 'Checklist updated.');
+  };
+
   const deleteInterview = async (interview, confirmed) => {
     if (confirmed === undefined) return setConfirmDeleteId(interview._id);
     if (!confirmed) return setConfirmDeleteId(null);
@@ -94,9 +104,27 @@ function ApplicationDetails() {
     }
   };
 
-  const onSaved = async (_interview, editing) => {
+  const removeApplication = async () => {
+    setBusy(true);
+    try {
+      await axiosClient.delete(`/applications/${app._id}`);
+      navigate('/applications');
+    } catch (err) {
+      setFeedback({ type: 'error', text: getErrorMessage(err, 'Could not remove the application') });
+      setConfirmRemove(false);
+      setBusy(false);
+    }
+  };
+
+  const onDetailsSaved = async () => {
+    setEditing(false);
+    setFeedback({ type: 'success', text: 'Application details saved.' });
+    await load();
+  };
+
+  const onSaved = async (_interview, wasEditing) => {
     setForm(null);
-    setFeedback({ type: 'success', text: editing ? 'Interview updated.' : 'Interview scheduled.' });
+    setFeedback({ type: 'success', text: wasEditing ? 'Interview updated.' : 'Interview scheduled.' });
     await load();
   };
 
@@ -196,6 +224,7 @@ function ApplicationDetails() {
                   onComplete={(iv) => interviewAction(iv, { status: 'completed' }, 'Interview marked as completed.')}
                   onCancel={(iv) => setCancelTarget(iv)}
                   onDelete={deleteInterview}
+                  onChecklistToggle={toggleChecklist}
                 />
               ))}
             </div>
@@ -203,6 +232,7 @@ function ApplicationDetails() {
         </section>
 
         <aside className="space-y-5">
+          <TrackerPanel application={app} onEdit={() => setEditing(true)} />
           <section className="bg-white rounded-2xl border border-sage/30 shadow-sm p-6">
             <h2 className="font-display text-lg font-bold text-primary mb-3">Details</h2>
             <dl className="text-sm space-y-2">
@@ -215,6 +245,20 @@ function ApplicationDetails() {
             <h2 className="font-display text-lg font-bold text-primary mb-4">Status history</h2>
             <StatusTimeline history={app.statusHistory || []} fallbackAt={app.appliedAt || app.createdAt} />
           </section>
+          <section className="bg-white rounded-2xl border border-sage/30 shadow-sm p-6">
+            <h2 className="font-display text-lg font-bold text-primary mb-2">Remove application</h2>
+            {confirmRemove ? (
+              <div role="alertdialog" aria-label="Confirm removal">
+                <p className="text-sm text-ink/75 mb-3">This removes the application, its notes and its {interviews.length} interview{interviews.length === 1 ? '' : 's'}. This cannot be undone.</p>
+                <div className="flex gap-2">
+                  <button type="button" disabled={busy} onClick={removeApplication} style={DANGER_FILLED_STYLE} className="focus-ring text-sm rounded-lg px-3 py-1.5 border hover:brightness-90 disabled:opacity-50">Yes, remove it</button>
+                  <button type="button" onClick={() => setConfirmRemove(false)} className="focus-ring text-sm rounded-lg px-3 py-1.5 border border-sage text-primary hover:bg-mint">Keep</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmRemove(true)} className={`focus-ring text-sm rounded-lg px-3 py-1.5 border ${DANGER_OUTLINE}`}>Remove from tracker</button>
+            )}
+          </section>
         </aside>
       </div>
 
@@ -226,6 +270,8 @@ function ApplicationDetails() {
           onConfirm={async () => { await interviewAction(cancelTarget, { status: 'cancelled' }, 'Interview cancelled. You can restore it with Reschedule.'); setCancelTarget(null); }}
         />
       )}
+
+      {editing && <EditApplicationModal application={app} onClose={() => setEditing(false)} onSaved={onDetailsSaved} />}
 
       {form && (
         <InterviewForm

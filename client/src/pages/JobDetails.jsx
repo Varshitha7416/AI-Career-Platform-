@@ -142,7 +142,13 @@ function JobDetails() {
 
               <div className="flex flex-col items-start md:items-end gap-3 shrink-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <ApplyFlow job={job} application={application} onApplied={(a) => { setApplication(a); setApplied(true); }} />
+                  {job.availability && job.availability !== 'open' && !application ? (
+                    <p role="status" className="rounded-xl bg-amber-100 text-amber-700 px-4 py-2.5 text-sm font-medium">
+                      {job.availability === 'expired' ? 'The application deadline has passed.' : job.availability === 'closed' ? 'This job is closed.' : 'This job is no longer listed.'}
+                    </p>
+                  ) : (
+                    <ApplyFlow job={job} application={application} onApplied={(a) => { setApplication(a); setApplied(true); }} />
+                  )}
                   <button
                     type="button"
                     onClick={() => toggleSave(job._id)}

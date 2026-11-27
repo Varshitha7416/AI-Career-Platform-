@@ -5,8 +5,8 @@ import ThemeToggle from '../ThemeToggle';
 import SiteFooter from '../site/SiteFooter';
 import { isLoggedIn } from '../../utils/auth';
 
-export const LEGAL_UPDATED = '2026-11-25';
-export const LEGAL_UPDATED_LABEL = 'November 25, 2026';
+export const LEGAL_UPDATED = '2026-11-27';
+export const LEGAL_UPDATED_LABEL = 'November 27, 2026';
 
 const linkCls = 'focus-ring inline-flex items-center min-h-10 rounded-lg px-3 text-sm font-medium text-primary hover:bg-mint transition';
 

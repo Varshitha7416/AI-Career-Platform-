@@ -114,6 +114,9 @@ export function describeAuthFailure(err, fallback) {
   if (res.status === 400 && data.errors && typeof data.errors === 'object') {
     return { banner: Object.keys(data.errors).length ? '' : data.message || fallback, fields: data.errors, code: 'VALIDATION_ERROR' };
   }
+  if (res.status === 503 && ['EMAIL_UNAVAILABLE', 'SERVICE_UNAVAILABLE'].includes(data.code) && data.message) {
+    return { banner: data.message, fields: {}, code: data.code }; // global, account-independent: safe to show verbatim
+  }
   if (res.status >= 500) return { banner: 'Something went wrong on our side. Please try again in a moment.', fields: {}, code: 'SERVER' };
   return { banner: data.message || fallback, fields: {}, code: data.code || 'ERROR' };
 }

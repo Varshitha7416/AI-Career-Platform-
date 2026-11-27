@@ -13,6 +13,7 @@ function CloudUploadIcon({ size = 40 }) {
   );
 }
 import ModalShell from '../interviews/ModalShell';
+import ResumePreviewModal from './ResumePreviewModal';
 import { validateResumeFile, formatSize, formatDate } from './resumeUtils';
 
 const DISPLAY_NAME = (r) => r.name || r.fileName;
@@ -33,6 +34,8 @@ function ResumeLibrary({ selectedId, onSelect, onResumesChange, compact = false,
   const [renameValue, setRenameValue] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [deleting, setDeleting] = useState(null); // resume pending delete confirmation
+  const [previewing, setPreviewing] = useState(null); // resume whose extracted text is shown in the preview modal
+  const closePreview = useCallback(() => setPreviewing(null), []);
   const inputRef = useRef(null);
 
   // Keep latest callbacks/selection in refs so the loader stays stable.
@@ -295,13 +298,18 @@ function ResumeLibrary({ selectedId, onSelect, onResumesChange, compact = false,
                     )}
                   </div>
                 </div>
-                {allowManage && !renaming && (
+                {!renaming && (
                   <div className="flex flex-wrap gap-1 mt-2 pl-8 text-xs">
-                    <button type="button" onClick={() => startRename(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-primary hover:bg-mint disabled:opacity-50">Rename</button>
-                    {!r.isDefault && (
-                      <button type="button" onClick={() => makeDefault(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-primary hover:bg-mint disabled:opacity-50">Set as default</button>
+                    <button type="button" onClick={() => setPreviewing(r)} className="focus-ring px-2 py-1 rounded-md text-primary hover:bg-mint">Preview</button>
+                    {allowManage && (
+                      <>
+                        <button type="button" onClick={() => startRename(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-primary hover:bg-mint disabled:opacity-50">Rename</button>
+                        {!r.isDefault && (
+                          <button type="button" onClick={() => makeDefault(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-primary hover:bg-mint disabled:opacity-50">Set as default</button>
+                        )}
+                        <button type="button" onClick={() => setDeleting(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-red-600 hover:bg-red-50 disabled:opacity-50">Delete</button>
+                      </>
                     )}
-                    <button type="button" onClick={() => setDeleting(r)} disabled={busy} className="focus-ring px-2 py-1 rounded-md text-red-600 hover:bg-red-50 disabled:opacity-50">Delete</button>
                   </div>
                 )}
               </li>
@@ -309,6 +317,8 @@ function ResumeLibrary({ selectedId, onSelect, onResumesChange, compact = false,
           })}
         </ul>
       )}
+
+      {previewing && <ResumePreviewModal resume={previewing} onClose={closePreview} />}
 
       {deleting && (
         <ModalShell title="Delete this resume?" onClose={() => setDeleting(null)} labelId="delete-resume-title">

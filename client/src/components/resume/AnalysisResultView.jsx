@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import ScoreRing from './ScoreRing';
+import ExportPdfButton from './ExportPdfButton';
 import { CheckIcon, InfoIcon, SparkIcon } from '../Icons';
 import { formatDateTime, snapshotJobLabel, snapshotResumeName } from './resumeUtils';
 
@@ -224,7 +225,7 @@ function AnalysisResultView({ analysis }) {
         </h2>
         <p className="text-sm text-ink/70 mt-1">
           {snapshotResumeName(analysis)}
-          {analysis.resumeDeleted && <span className="ml-1 text-xs text-amber-700">(resume since deleted)</span>}
+          {analysis.resumeDeleted && <span className="ml-1 text-xs text-amber-700">(Resume no longer available)</span>}
           {jobLabel && <> &middot; {jobLabel}{analysis.jobDeleted && <span className="ml-1 text-xs text-amber-700">(job no longer listed)</span>}</>}
           {analysis.createdAt && <> &middot; {formatDateTime(analysis.createdAt)}</>}
         </p>
@@ -245,6 +246,10 @@ function AnalysisResultView({ analysis }) {
             This is an older analysis, saved before detailed breakdowns existed. Only the basic strengths, missing skills and suggestions are available. Run a new analysis for the full report.
           </p>
         )}
+
+        <div className="mt-4 flex flex-wrap items-start gap-2">
+          <ExportPdfButton id={analysis._id} />
+        </div>
 
         {jobId && (
           <div className="mt-4">

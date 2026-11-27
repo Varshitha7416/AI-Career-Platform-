@@ -4,6 +4,7 @@ import axiosClient from '../api/axiosClient';
 import { getErrorMessage } from '../utils/errors';
 import CompanyLogo from '../components/CompanyLogo';
 import StatusPill from '../components/applications/StatusPill';
+import TrackerFlags from '../components/applications/TrackerFlags';
 import { Skeleton, ErrorMessage, SuccessMessage, EmptyState } from '../components/Feedback';
 import { SearchIcon } from '../components/Icons';
 import { STATUS_OPTIONS, STATUS_META, fetchApplications, formatDate } from '../utils/dashboard';
@@ -137,6 +138,7 @@ function Applications() {
                   <p className="text-xs text-ink/55">
                     Applied {formatDate(app.appliedAt || app.createdAt)}{app.applyMethod === 'external' ? ' · via employer link' : ''}
                   </p>
+                  <div className="mt-1"><TrackerFlags application={app} /></div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 md:justify-end">

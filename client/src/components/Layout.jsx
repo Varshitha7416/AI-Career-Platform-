@@ -1,5 +1,6 @@
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import VerifyEmailBanner from './VerifyEmailBanner';
 
 // Shared application shell for every protected page: collapsible sidebar + top bar + content.
 // Pages render only their own content (no navbars of their own).
@@ -14,6 +15,7 @@ function Layout({ children }) {
       </a>
       <Sidebar />
       <TopBar />
+      <VerifyEmailBanner />
       <main id="main">{children}</main>
     </div>
   );
