@@ -7,8 +7,10 @@ const { ensureHistory } = require('../utils/applicationHelpers');
 const MODES = ['video', 'phone', 'onsite'];
 const TYPES = ['screening', 'technical', 'hr', 'managerial', 'final', 'other'];
 const STATUSES = ['scheduled', 'completed', 'cancelled'];
-const FILTERS = ['upcoming', 'past', 'all'];
+const FILTERS = ['upcoming', 'past', 'completed', 'cancelled', 'all'];
 const MAX_AHEAD_MS = 3 * 365 * 86400000;
+const REMINDER_OFFSETS = [15, 30, 60, 120, 1440, 2880]; // minutes before the interview
+const { CLOCK_SKEW_MS, parseDate, parseText, parseHttpUrl } = require('../utils/tracker/validate');
 
 const POPULATE = { path: 'job', select: 'title city workMode company', populate: { path: 'company', select: 'name logoUrl' } };
 
@@ -21,6 +23,14 @@ const shape = (i) => ({
   location: i.location || null,
   notes: i.notes || null,
   status: i.status,
+  round: i.round || null,
+  roundLabel: i.roundLabel || null,
+  prepNotes: i.prepNotes || null,
+  debrief: i.debrief || null,
+  prepResources: i.prepResources || [],
+  prepChecklist: i.prepChecklist || [],
+  remindAt: i.remindAt || null,
+  reminderOffsetMinutes: i.reminderOffsetMinutes || null,
   application: { _id: i.application?._id || i.application, status: i.application?.status },
   job: { _id: i.job._id, title: i.job.title, city: i.job.city, workMode: i.job.workMode },
   company: i.job.company ? { _id: i.job.company._id, name: i.job.company.name, logoUrl: i.job.company.logoUrl || null } : null,
@@ -72,12 +82,92 @@ function validateBody(body, { partial, status }) {
     }
   }
 
+  // ---- round, prep and debrief (all optional; null / '' clears)
+  if (body.round !== undefined) {
+    if (body.round === null || body.round === '') data.round = null;
+    else {
+      const n = Number(body.round);
+      if (!Number.isInteger(n) || n < 1 || n > 20) errors.push('Round must be a whole number from 1 to 20');
+      else data.round = n;
+    }
+  }
+  for (const [key, label, max] of [['roundLabel', 'Round name', 80], ['prepNotes', 'Preparation notes', 4000], ['debrief', 'Interview notes', 4000]]) {
+    if (body[key] !== undefined) {
+      const r = parseText(body[key] === '' ? null : body[key], label, max);
+      if (r.error) errors.push(r.error);
+      else data[key] = r.value;
+    }
+  }
+  if (body.prepResources !== undefined) {
+    if (body.prepResources === null) data.prepResources = [];
+    else if (!Array.isArray(body.prepResources) || body.prepResources.length > 10) errors.push('Preparation links must be a list of at most 10');
+    else {
+      const list = [];
+      for (const r of body.prepResources) {
+        const t = parseText(r && r.title, 'Link title', 120);
+        const u = parseHttpUrl(r && r.url, 'Preparation link');
+        if (t.error || !t.value) errors.push(t.error || 'Each preparation link needs a title');
+        else if (u.error || !u.value) errors.push(u.error || 'Each preparation link needs a URL');
+        else list.push({ title: t.value, url: u.value });
+      }
+      data.prepResources = list;
+    }
+  }
+  if (body.prepChecklist !== undefined) {
+    if (body.prepChecklist === null) data.prepChecklist = [];
+    else if (!Array.isArray(body.prepChecklist) || body.prepChecklist.length > 20) errors.push('The checklist can have at most 20 items');
+    else {
+      const list = [];
+      for (const c of body.prepChecklist) {
+        const t = parseText(c && c.text, 'Checklist item', 200);
+        if (t.error || !t.value) errors.push(t.error || 'Checklist items cannot be empty');
+        else list.push({ text: t.value, done: c.done === true });
+      }
+      data.prepChecklist = list;
+    }
+  }
+
   // A scheduled interview must be in the future (allow 1 minute of clock skew); completed/cancelled may be in the past.
   const effective = data.status || status || 'scheduled';
   if (data.scheduledAt && effective === 'scheduled' && data.scheduledAt.getTime() < Date.now() - 60000) {
     errors.push('A scheduled interview must be in the future. Mark it as completed to record a past interview.');
   }
   return { data, errors };
+}
+
+// Reminder before an interview: either reminderOffsetMinutes (one of REMINDER_OFFSETS; follows the interview when it is
+// rescheduled) or an explicit remindAt. null / '' removes it. Returns { set, errors }; `set` is applied with doc.set / create.
+function resolveReminder(body, existing, scheduledAt, { rescheduled = false } = {}) {
+  const set = {};
+  const errors = [];
+  const now = Date.now();
+  const blank = (v) => v === null || v === '';
+  const hasOffset = body.reminderOffsetMinutes !== undefined;
+  const hasAbs = body.remindAt !== undefined;
+  const clear = () => { set.remindAt = null; set.reminderOffsetMinutes = null; set.reminderNotifiedAt = undefined; };
+  const sched = scheduledAt.getTime();
+
+  if (hasOffset && !blank(body.reminderOffsetMinutes)) {
+    const n = Number(body.reminderOffsetMinutes);
+    if (!REMINDER_OFFSETS.includes(n)) errors.push(`Reminder lead time must be one of: ${REMINDER_OFFSETS.join(', ')} minutes`);
+    else if (sched - n * 60000 < now - CLOCK_SKEW_MS) errors.push('That reminder time has already passed. Choose a shorter lead time.');
+    else { set.remindAt = new Date(sched - n * 60000); set.reminderOffsetMinutes = n; set.reminderNotifiedAt = undefined; }
+  } else if (hasAbs && !blank(body.remindAt)) {
+    const r = parseDate(body.remindAt, 'Reminder');
+    if (r.error) errors.push(r.error);
+    else if (r.value.getTime() >= sched) errors.push('Reminder must be before the interview');
+    else if (r.value.getTime() < now - CLOCK_SKEW_MS && !(existing && existing.remindAt && existing.remindAt.getTime() === r.value.getTime())) errors.push('Reminder must be in the future');
+    else if (!(existing && existing.remindAt && existing.remindAt.getTime() === r.value.getTime())) { set.remindAt = r.value; set.reminderOffsetMinutes = null; set.reminderNotifiedAt = undefined; }
+  } else if (hasOffset || hasAbs) {
+    clear();
+  } else if (rescheduled && existing && existing.remindAt) {
+    // The interview moved and the user did not touch the reminder: keep it relative to the new time when possible.
+    if (existing.reminderOffsetMinutes) {
+      const at = sched - existing.reminderOffsetMinutes * 60000;
+      if (at >= now - CLOCK_SKEW_MS) { set.remindAt = new Date(at); set.reminderNotifiedAt = undefined; } else clear();
+    } else if (existing.remindAt.getTime() >= sched || existing.remindAt.getTime() < now - CLOCK_SKEW_MS) clear();
+  }
+  return { set, errors };
 }
 
 const createInterview = async (req, res, next) => {
@@ -91,7 +181,9 @@ const createInterview = async (req, res, next) => {
     const { data, errors } = validateBody(req.body, { partial: false });
     if (errors.length) return res.status(400).json({ message: errors.join(', ') });
 
-    const interview = await Interview.create({ ...data, user: req.user.id, application: application._id, job: application.job._id });
+    const reminder = resolveReminder(req.body, null, data.scheduledAt);
+    if (reminder.errors.length) return res.status(400).json({ message: reminder.errors.join(', ') });
+    const interview = await Interview.create({ ...data, ...reminder.set, user: req.user.id, application: application._id, job: application.job._id });
 
     if (application.status === 'applied') {
       ensureHistory(application);
@@ -126,13 +218,24 @@ const listInterviews = async (req, res, next) => {
       query.status = 'scheduled';
       query.scheduledAt = { $gte: now };
       sort = { scheduledAt: 1 };
+    } else if (filter === 'completed' || filter === 'cancelled') {
+      query.status = filter;
     } else if (filter === 'past') {
       query.$or = [{ scheduledAt: { $lt: now } }, { status: { $in: ['completed', 'cancelled'] } }];
     }
 
     const all = await Interview.find(query).sort(sort).populate(POPULATE).populate('application', 'status');
     const interviews = all.filter((i) => i.job).map(shape); // interviews whose job was deleted are hidden
-    res.status(200).json({ count: interviews.length, interviews });
+    // Counts for the tab badges (same definitions as the filters above).
+    const base = { user: req.user.id };
+    const [upcoming, completed, cancelled, total] = await Promise.all([
+      Interview.countDocuments({ ...base, status: 'scheduled', scheduledAt: { $gte: now } }),
+      Interview.countDocuments({ ...base, status: 'completed' }),
+      Interview.countDocuments({ ...base, status: 'cancelled' }),
+      Interview.countDocuments(base),
+    ]);
+    const past = await Interview.countDocuments({ ...base, $or: [{ scheduledAt: { $lt: now } }, { status: { $in: ['completed', 'cancelled'] } }] });
+    res.status(200).json({ count: interviews.length, interviews, counts: { upcoming, past, completed, cancelled, all: total } });
   } catch (error) {
     next(error);
   }
@@ -157,9 +260,12 @@ const updateInterview = async (req, res, next) => {
     if (errors.length) return res.status(400).json({ message: errors.join(', ') });
 
     const rescheduled = data.scheduledAt && data.scheduledAt.getTime() !== interview.scheduledAt.getTime();
+    const restoring = data.status === 'scheduled' && interview.status !== 'scheduled';
+    const reminder = resolveReminder(req.body, interview, data.scheduledAt || interview.scheduledAt, { rescheduled: rescheduled || restoring });
+    if (reminder.errors.length) return res.status(400).json({ message: reminder.errors.join(', ') });
     const cancelled = data.status === 'cancelled' && interview.status !== 'cancelled';
     const previousStatus = interview.status;
-    interview.set(data);
+    interview.set({ ...data, ...reminder.set });
     if (data.status && data.status !== previousStatus) interview.statusChangedAt = new Date();
     await interview.save();
 

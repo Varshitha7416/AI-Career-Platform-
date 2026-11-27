@@ -26,8 +26,8 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid token. Please log in again.', code: 'INVALID_TOKEN' });
     }
 
-    const user = await User.findById(payload.userId).select('role tokenVersion');
-    if (!user) {
+    const user = await User.findById(payload.userId).select('role tokenVersion emailVerified deletedAt');
+    if (!user || user.deletedAt) {
       return res.status(401).json({ message: 'Account no longer exists', code: 'INVALID_TOKEN' });
     }
     // Tokens issued before tokenVersion existed carry no `tv` and count as version 0. A password change bumps the
@@ -36,7 +36,7 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Session is no longer valid. Please log in again.', code: 'INVALID_TOKEN' });
     }
 
-    req.user = { id: user._id.toString(), role: user.role };
+    req.user = { id: user._id.toString(), role: user.role, emailVerified: user.emailVerified === true };
     next();
   } catch (error) {
     next(error);

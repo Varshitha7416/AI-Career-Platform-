@@ -6,7 +6,7 @@
  *
  * Creates ~8 demo users (emails @example.com), 4 demo companies, 6 demo jobs, a resume per user and ~10 referral
  * requests in every status, in both directions for the main demo user. It never calls seed.js and never deletes.
- * Idempotent: users are upserted by email, companies by name, jobs by externalId, resumes by (user, fileName) and
+ * Demo users are created email-verified (emailVerified: true) so the referral flow works. Idempotent: users are upserted by email, companies by name, jobs by externalId, resumes by (user, fileName) and
  * referrals by (sender, provider, job, message); reruns create nothing new and do not overwrite existing records.
  *
  * Demo login password for every user: Demo@12345
@@ -95,7 +95,14 @@ const run = async () => {
   const userDocs = {};
   for (const u of USERS) {
     const { key, ...fields } = u;
-    userDocs[key] = (await User.findOne({ email: u.email })) || (await User.create({ ...fields, password: hash }));
+    const verifiedAt = new Date();
+    userDocs[key] = (await User.findOne({ email: u.email })) || (await User.create({ ...fields, password: hash, emailVerified: true, emailVerifiedAt: verifiedAt }));
+    // Demo accounts must be verified or they cannot send referral requests (requireVerified). Only the verification flag of
+    // these fictional demo users is touched; nothing else on an existing record is overwritten.
+    if (userDocs[key].emailVerified !== true) {
+      await User.updateOne({ _id: userDocs[key]._id }, { $set: { emailVerified: true, emailVerifiedAt: verifiedAt } });
+      userDocs[key].emailVerified = true;
+    }
   }
   const companyDocs = {};
   for (const c of COMPANIES) {

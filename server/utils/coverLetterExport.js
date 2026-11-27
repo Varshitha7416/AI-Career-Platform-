@@ -67,4 +67,4 @@ const buildFileName = (company, title, ext) => {
   return `${parts.join('-')}.${ext}`;
 };
 
-module.exports = { toPdfBuffer, toDocxBuffer, buildFileName };
+module.exports = { toPdfBuffer, toDocxBuffer, buildFileName, pdfSafe, safePart };

@@ -34,6 +34,10 @@ const jobSchema = new mongoose.Schema({
   externalId: { type: String, unique: true, sparse: true },       // id in an external feed (future live-data API)
   isActive: { type: Boolean, default: true },
   postedAt: { type: Date, default: Date.now },
+  status: { type: String, enum: ['open', 'closed'], default: 'open' },   // 'closed' = no longer accepting applications
+  closedAt: { type: Date },
+  applicationDeadline: { type: Date },                             // past deadline = expired (derived)
+  category: { type: String, trim: true, maxlength: 80 },
 
   // ---- job facts ----
   country: { type: String, default: 'India' },
@@ -61,6 +65,7 @@ const jobSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 jobSchema.index({ isActive: 1, postedAt: -1 });
+jobSchema.index({ status: 1, applicationDeadline: 1 });
 jobSchema.index({ company: 1 });
 jobSchema.index({ city: 1 });
 jobSchema.index({ workMode: 1 });

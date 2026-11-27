@@ -37,8 +37,25 @@ const applicationSchema = new mongoose.Schema({
     }],
     default: undefined,
   },
+  // ---- Tracker details (all optional, additive: older records simply lack them; docs/29) ----
+  notes: { type: String, maxlength: 2000 },
+  followUpAt: { type: Date },
+  nextAction: {
+    type: new mongoose.Schema({
+      text: { type: String, maxlength: 200 },
+      dueAt: { type: Date },
+    }, { _id: false }),
+    default: undefined,
+  },
+  externalUrl: { type: String, maxlength: 500 }, // http(s) only, validated in the controller
+  resume: { type: mongoose.Schema.Types.ObjectId, ref: 'Resume' },
+  coverLetter: { type: mongoose.Schema.Types.ObjectId, ref: 'CoverLetter' },
+  // Reminder: stored as a due time; a database-backed materialiser creates the notification (utils/reminders.js).
+  reminderAt: { type: Date },
+  reminderNotifiedAt: { type: Date },
 }, { timestamps: true });
 
 applicationSchema.index({ user: 1, job: 1 }, { unique: true });
+applicationSchema.index({ reminderAt: 1 }, { sparse: true });
 
 module.exports = mongoose.model('Application', applicationSchema);

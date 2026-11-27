@@ -15,6 +15,7 @@ require('dotenv').config({ quiet: true });
 const mongoose = require('mongoose');
 const Program = require('../models/Program');
 const { PROGRAMS } = require('../data/programs');
+const { parseDurationWeeks } = require('../utils/programs/duration');
 
 const args = process.argv.slice(2);
 const KNOWN_FLAGS = ['--apply', '--help'];
@@ -78,7 +79,7 @@ const run = async () => {
     toInsert.map((p) => ({
       updateOne: {
         filter: { slug: p.slug },
-        update: { $setOnInsert: { ...p, isActive: true, source: 'demo', createdAt: now, updatedAt: now } },
+        update: { $setOnInsert: { ...p, durationWeeks: parseDurationWeeks(p.duration) ?? undefined, isActive: true, source: 'demo', createdAt: now, updatedAt: now } },
         upsert: true,
       },
     }))

@@ -209,7 +209,7 @@ const createRoadmap = async (req, res, next) => {
       existing = await findExisting();
       if (alreadyDone(existing)) return sendExisting(existing);
 
-      const programs = await Program.find({ isActive: { $ne: false } }).select('title provider url duration level skills').lean();
+      const programs = await Program.find({ isActive: { $ne: false }, archivedAt: { $exists: false } }).select('title provider url duration level skills').lean();
       let content;
       try {
         content = await generateRoadmapContent(
@@ -261,7 +261,7 @@ const getPrograms = async (req, res, next) => {
     const analysis = await ownAnalysis(req);
     if (!analysis) return notFound(res, 'Analysis not found');
     const gaps = collectGaps(analysis);
-    const programs = gaps.length ? await Program.find({ isActive: { $ne: false } }).lean() : [];
+    const programs = gaps.length ? await Program.find({ isActive: { $ne: false }, archivedAt: { $exists: false } }).lean() : [];
     const hits = indexByKey(programs, gaps.map((g) => g.key), new Set(gaps.filter((g) => g.partial).map((g) => g.key)));
     const matched = new Map(); // programId -> {program, skills[]}
     gaps.forEach((g) => (hits.get(g.key) || []).forEach((p) => {

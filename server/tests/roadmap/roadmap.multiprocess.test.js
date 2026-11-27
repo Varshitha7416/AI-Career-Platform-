@@ -68,7 +68,7 @@ const call = async (srv, token, method, url, body) => {
 let seq = 0;
 const newCase = async () => {
   seq += 1;
-  const u = await User.create({ name: 'MP Tester', email: `mp${seq}.${process.pid}@example.com`, password: 'x'.repeat(20) });
+  const u = await User.create({ name: 'MP Tester', email: `mp${seq}.${process.pid}@example.com`, password: 'x'.repeat(20), emailVerified: true });
   const analysis = await Analysis.create({
     user: u._id, title: 'MP analysis', mode: 'resume', basis: 'resume-verified', targetKind: 'role-only', targetRole: 'Frontend Developer',
     requirements: [{ skill: 'React', key: canonicalKey('React'), kind: 'required' }],

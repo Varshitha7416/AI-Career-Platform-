@@ -9,6 +9,7 @@ const Notification = require('../models/Notification');
 const Program = require('../models/Program');
 const ProgramEnrollment = require('../models/ProgramEnrollment');
 const Job = require('../models/Job');
+const { materialiseDue } = require('../utils/reminders');
 const { computeProfileCompleteness } = require('../utils/profileCompleteness');
 const { appliedDate, historyOf, STATUS_LABEL } = require('../utils/applicationHelpers');
 
@@ -67,6 +68,7 @@ const getOverview = async (req, res, next) => {
 
     const userId = new mongoose.Types.ObjectId(req.user.id);
     const now = new Date();
+    await materialiseDue({ userId }); // due reminders become notifications before the unread count is read (idempotent)
 
     // ---- wave 1: every per-user collection, in parallel (one query each)
     const [user, resumes, applications, savedAll, interviews, referrals, unread, enrollments, programs] = await Promise.all([

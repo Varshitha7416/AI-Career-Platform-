@@ -7,6 +7,9 @@ const { isValidId, escapeRegex } = require('../middleware/validate');
 const { CURRENCIES } = require('../utils/salary');
 const { effectiveInterests } = require('../utils/roles');
 const { buildRecommendations } = require('../utils/recommendationEngine');
+const { publicJobFilter, availabilityOf } = require('../utils/jobVisibility');
+const { recordAdminAction } = require('../utils/adminAudit');
+const SavedJob = require('../models/SavedJob');
 
 const LEVELS = ['fresher', 'experienced'];
 
@@ -30,7 +33,7 @@ const toList = (v) => {
 };
 
 // ---------------------------------------------------------------- validation (admin writes)
-const validateJobBody = async (body, partial) => {
+const validateJobBody = async (body, partial, { currentCompany, currentDeadline } = {}) => {
   const data = {};
   const errors = [];
 
@@ -85,7 +88,30 @@ const validateJobBody = async (body, partial) => {
   oneOf('source', 'Source', Job.SOURCES);
 
   if (body.country !== undefined && String(body.country).trim()) data.country = String(body.country).trim();
-  if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  if (body.isActive !== undefined) {
+    if (typeof body.isActive !== 'boolean') errors.push('isActive must be true or false');
+    else data.isActive = body.isActive;
+  }
+
+  if (body.category !== undefined) {
+    const c = String(body.category || '').trim();
+    if (c.length > 80) errors.push('Category must be at most 80 characters');
+    else data.category = c || undefined;
+  }
+
+  if (body.applicationDeadline !== undefined) {
+    if (body.applicationDeadline === null || body.applicationDeadline === '') {
+      data.applicationDeadline = undefined;
+    } else {
+      // A bare date (from a date picker) means the END of that day, so a job stays open through its last day.
+      const raw = /^\d{4}-\d{2}-\d{2}$/.test(String(body.applicationDeadline)) ? `${body.applicationDeadline}T23:59:59.999Z` : body.applicationDeadline;
+      const d = new Date(raw);
+      const unchanged = currentDeadline && !Number.isNaN(d.getTime()) && d.getTime() === new Date(currentDeadline).getTime();
+      if (Number.isNaN(d.getTime())) errors.push('Application deadline must be a valid date');
+      else if (!unchanged && d.getTime() < Date.now() - 24 * 3600 * 1000) errors.push('Application deadline cannot be in the past');
+      else data.applicationDeadline = d;
+    }
+  }
 
   for (const key of ['skills', 'preferredSkills', 'responsibilities', 'requirements', 'education']) {
     if (body[key] !== undefined) data[key] = toList(body[key]);
@@ -108,10 +134,13 @@ const validateJobBody = async (body, partial) => {
 
   if (body.company === undefined) {
     if (!partial) errors.push('Company is required');
-  } else if (!isValidId(String(body.company)) || !(await Company.exists({ _id: body.company }))) {
+  } else if (!isValidId(String(body.company))) {
     errors.push('Company not found');
   } else {
-    data.company = body.company;
+    const company = await Company.findById(body.company).select('isActive').lean();
+    if (!company) errors.push('Company not found');
+    else if (company.isActive === false && String(body.company) !== String(currentCompany || '')) errors.push('This company is archived and cannot be used for new or moved jobs');
+    else data.company = body.company;
   }
 
   return { data, errors };
@@ -120,7 +149,7 @@ const validateJobBody = async (body, partial) => {
 // ---------------------------------------------------------------- search
 // Every whitespace separated word must match at least one searchable field (AND of ORs).
 const buildSearch = async (query) => {
-  const and = [{ isActive: { $ne: false } }];
+  const and = [publicJobFilter()];
   const relevanceParts = [];
 
   const tokens = String(query.q || '').trim().split(/\s+/).filter(Boolean).slice(0, 6);
@@ -228,7 +257,7 @@ const getJobs = async (req, res, next) => {
 // Values used to populate the filter controls (cities, types, ...). Counts only active jobs.
 const getJobMeta = async (req, res, next) => {
   try {
-    const active = { isActive: { $ne: false } };
+    const active = publicJobFilter();
     const [cities, types, modes, topSkills, salary, total, companies] = await Promise.all([
       Job.aggregate([{ $match: active }, { $group: { _id: '$city', count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } }]),
       Job.aggregate([{ $match: active }, { $group: { _id: '$employmentType', count: { $sum: 1 } } }]),
@@ -264,7 +293,7 @@ const getRecommendedJobs = async (req, res, next) => {
     const resumes = await Resume.find({ user: req.user.id }).select('name fileName isDefault targetRoleKey resumeText createdAt').lean();
     const { interests, primaryKey } = effectiveInterests(user || {});
 
-    const jobs = await Job.find({ isActive: { $ne: false } }).populate('company').lean();
+    const jobs = await Job.find(publicJobFilter()).populate('company').lean();
     const applied = new Set((await Application.find({ user: req.user.id }).select('job').lean()).map((a) => String(a.job)));
     const candidates = jobs.filter((j) => !applied.has(String(j._id)));
 
@@ -279,7 +308,16 @@ const getJobById = async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.id).populate('company');
     if (!job) return res.status(404).json({ message: 'Job not found' });
-    res.status(200).json({ job });
+    const availability = availabilityOf(job);
+    // Hidden (admin-deactivated) jobs are visible only to admins and to users who already saved or applied to them.
+    if (availability === 'inactive' && req.user.role !== 'admin') {
+      const [saved, applied] = await Promise.all([
+        SavedJob.exists({ user: req.user.id, job: job._id }),
+        Application.exists({ user: req.user.id, job: job._id }),
+      ]);
+      if (!saved && !applied) return res.status(404).json({ message: 'Job not found' });
+    }
+    res.status(200).json({ job: { ...job.toObject(), availability } });
   } catch (error) {
     next(error);
   }
@@ -291,6 +329,7 @@ const createJob = async (req, res, next) => {
     if (errors.length) return res.status(400).json({ message: errors.join(', ') });
 
     const job = await Job.create({ source: 'manual', ...data, postedBy: req.user.id });
+    await recordAdminAction({ actor: req.user.id, action: 'job.created', targetType: 'job', targetId: job._id, summary: `Created job "${job.title}" (${job.jobCode})` });
     res.status(201).json({ message: 'Job created successfully', job });
   } catch (error) {
     next(error);
@@ -299,14 +338,15 @@ const createJob = async (req, res, next) => {
 
 const updateJob = async (req, res, next) => {
   try {
-    const { data, errors } = await validateJobBody(req.body, true);
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    const { data, errors } = await validateJobBody(req.body, true, { currentCompany: job.company, currentDeadline: job.applicationDeadline });
     if (errors.length) return res.status(400).json({ message: errors.join(', ') });
 
     // Load + save (instead of findByIdAndUpdate) so derived fields such as salaryMaxInr are recomputed.
-    const job = await Job.findById(req.params.id);
-    if (!job) return res.status(404).json({ message: 'Job not found' });
     job.set(data);
     await job.save();
+    await recordAdminAction({ actor: req.user.id, action: 'job.updated', targetType: 'job', targetId: job._id, summary: `Updated job "${job.title}" (${job.jobCode})` });
 
     res.status(200).json({ message: 'Job updated successfully', job });
   } catch (error) {
@@ -318,10 +358,11 @@ const deleteJob = async (req, res, next) => {
   try {
     const job = await Job.findByIdAndDelete(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
+    await recordAdminAction({ actor: req.user.id, action: 'job.deleted', targetType: 'job', targetId: job._id, summary: `Deleted job "${job.title}" (${job.jobCode || 'no code'})` });
     res.status(200).json({ message: 'Job deleted successfully' });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { createJob, getJobs, getJobMeta, getRecommendedJobs, getJobById, updateJob, deleteJob };
+module.exports = { validateJobBody, createJob, getJobs, getJobMeta, getRecommendedJobs, getJobById, updateJob, deleteJob };

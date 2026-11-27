@@ -59,7 +59,7 @@ const stub = async (prompt) => {
 let seq = 0;
 const newUser = async (tag = 'u') => {
   seq += 1;
-  const u = await User.create({ name: 'Road Tester', email: `${tag}${seq}.${process.pid}@example.com`, password: 'x'.repeat(20) });
+  const u = await User.create({ name: 'Road Tester', email: `${tag}${seq}.${process.pid}@example.com`, password: 'x'.repeat(20), emailVerified: true });
   return { id: String(u._id), token: signToken(u) };
 };
 
@@ -413,6 +413,9 @@ test('summary reports deleted resume/job flags (history is retained)', { skip },
 // ---------------------------------------------------------------- concurrency (backend lock, not a UI guard)
 const gate = () => { let open; const p = new Promise((r) => { open = r; }); return { p, open }; };
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+// The controller sends its response and releases the lock in a `finally` right AFTER it, so a client can see the 201 a few
+// milliseconds before the lock is gone. Wait (bounded) for the release; the invariant asserted is unchanged: it IS released.
+const lockGone = async (id) => { for (let i = 0; i < 60; i += 1) { const l = await lockOf(id); if (l === undefined) return l; await settle(50); } return lockOf(id); };
 const lockOf = async (id) => (await Analysis.findById(id).select('+roadmapLock').lean()).roadmapLock;
 
 test('concurrent POSTs for one analysis: exactly one Gemini call, one roadmap, consistent responses', { skip }, async () => {
@@ -429,7 +432,7 @@ test('concurrent POSTs for one analysis: exactly one Gemini call, one roadmap, c
   assert.equal(ids.size, 1);
   assert.equal(rs.filter((r) => r.body.existing === true).length, 3);
   assert.equal(await Roadmap.countDocuments({ analysis: a._id }), 1);
-  assert.equal(await lockOf(a._id), undefined, 'lock released');
+  assert.equal(await lockGone(a._id), undefined, 'lock released');
 });
 
 test('concurrent regenerate: one regeneration, progress reset once, no duplicate roadmaps', { skip }, async () => {
@@ -469,7 +472,7 @@ test('failure then retry: failed holder frees the lock, a waiting request retrie
   assert.deepEqual(rs.map((r) => r.status).sort(), [201, 429]);
   assert.equal(aiCalls, 2, 'one failed call + one successful retry');
   assert.equal(await Roadmap.countDocuments({ analysis: a._id }), 1);
-  assert.equal(await lockOf(a._id), undefined);
+  assert.equal(await lockGone(a._id), undefined);
 });
 
 test('a failed generation leaves nothing behind and the lock free for an immediate retry', { skip }, async () => {
@@ -477,7 +480,7 @@ test('a failed generation leaves nothing behind and the lock free for an immedia
   aiMode = 'quota';
   assert.equal((await post(u.token, `/${a._id}/roadmap`, {})).status, 429);
   assert.equal(await Roadmap.countDocuments({ analysis: a._id }), 0);
-  assert.equal(await lockOf(a._id), undefined);
+  assert.equal(await lockGone(a._id), undefined);
   aiMode = 'ok';
   assert.equal((await post(u.token, `/${a._id}/roadmap`, {})).status, 201);
 });
@@ -487,7 +490,7 @@ test('stale lock (crashed holder) is taken over; a fresh foreign lock gives 409 
   const u = await newUser('c5'); const a = await mkAnalysis(u.id);
   await Analysis.updateOne({ _id: a._id }, { $set: { roadmapLock: { token: 'dead', at: new Date(Date.now() - 10 * 60 * 1000) } } }, { timestamps: false });
   assert.equal((await post(u.token, `/${a._id}/roadmap`, {})).status, 201, 'stale lock must not block forever');
-  assert.equal(await lockOf(a._id), undefined);
+  assert.equal(await lockGone(a._id), undefined);
 
   const b = await mkAnalysis(u.id);
   await Analysis.updateOne({ _id: b._id }, { $set: { roadmapLock: { token: 'someone-else', at: new Date() } } }, { timestamps: false });

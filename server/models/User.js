@@ -29,6 +29,13 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Email ownership proof (Batch 1). Missing on legacy users = not verified. Owned by the email-verification module.
+  emailVerified: { type: Boolean, default: false },
+  emailVerifiedAt: { type: Date },
+  // Set when the account was deleted/anonymized (Batch 1 account management). A deleted account can never authenticate.
+  deletedAt: { type: Date, default: null },
+  // Set only after every collection was cleaned and verified (utils/account/deletion.js). deletedAt set + this unset = cleanup pending.
+  deletionCompletedAt: { type: Date, default: null },
   // Set when the user ticked the terms box at signup (optional; not required by the API)
   termsAcceptedAt: {
     type: Date,
@@ -70,6 +77,9 @@ const userSchema = new mongoose.Schema({
     applications: { type: Boolean, default: true },
     interviews: { type: Boolean, default: true },
     referrals: { type: Boolean, default: true },
+    programs: { type: Boolean, default: true },
+    reminders: { type: Boolean, default: true },
+    support: { type: Boolean, default: true },
   },
   // ---- Profile (all optional, additive; legacy users simply lack them) ----
   phone: { type: String, maxlength: 20 },
@@ -117,5 +127,12 @@ const userSchema = new mongoose.Schema({
   },
   primaryRole: { type: String, maxlength: 80 },
 }, { timestamps: true });
+
+// Account-deletion sweep (utils/account/deletion.js): finds tombstones (deletedAt set) whose cleanup is pending or was recently
+// completed. Partial, so the index only holds deleted accounts (a tiny fraction of users) and costs nothing for live ones.
+userSchema.index(
+  { deletedAt: 1, deletionCompletedAt: 1 },
+  { name: 'deleted_sweep_idx', partialFilterExpression: { deletedAt: { $type: 'date' } } },
+);
 
 module.exports = mongoose.model('User', userSchema);

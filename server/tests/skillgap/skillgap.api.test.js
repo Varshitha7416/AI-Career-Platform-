@@ -48,6 +48,8 @@ let seq = 0;
 const newUser = async () => {
   const email = `sg${++seq}.${process.pid}@example.com`;
   assert.equal((await post(null, '/auth/signup', { name: 'Skill Tester', email, password: PW })).status, 201);
+  // Email verification policy (docs/23): AI generation needs a verified account, so the fixture verifies it directly in the DB.
+  await mongoose.connection.collection('users').updateOne({ email }, { $set: { emailVerified: true, emailVerifiedAt: new Date() } });
   const l = await post(null, '/auth/login', { email, password: PW });
   return { token: l.body.token, id: l.body.user.id };
 };

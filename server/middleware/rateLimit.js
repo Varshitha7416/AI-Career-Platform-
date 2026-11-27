@@ -70,4 +70,42 @@ const passwordChange = rateLimit({
   validate: { ip: false },
 });
 
-module.exports = { loginByIp, loginByEmail, signupByIp, passwordChange };
+// Password reset. Only the per-IP limit answers 429, and it counts every request (registered or not), so a 429 never reveals
+// whether an account exists. There is deliberately NO per-email 429: it would let anyone lock the legitimate owner out of
+// recovery by hammering their address. Per-account protection (cooldown, hourly budget, one usable link) lives in the
+// database (utils/authTokens.js reserve()), is shared by every server process, and is silent: throttled requests answer exactly
+// like accepted ones and never touch the owner's existing link. The limiters in this file are per process (see the note above).
+const forgotWindow = () => intEnv('AUTH_FORGOT_WINDOW_MINUTES', 60) * 60 * 1000;
+
+const forgotByIp = rateLimit({
+  ...base,
+  windowMs: forgotWindow(),
+  limit: intEnv('AUTH_FORGOT_IP_MAX', 10),
+  handler: makeHandler('Too many password reset requests. Please wait before trying again.'),
+});
+
+// Guards the reset endpoint against token guessing from one address.
+const resetByIp = rateLimit({
+  ...base,
+  windowMs: loginWindow(),
+  limit: intEnv('AUTH_RESET_MAX', 10),
+  handler: makeHandler('Too many password reset attempts. Please wait before trying again.'),
+});
+
+// Email verification. Per-IP only (a per-email 429 would reveal accounts / lock owners out); per-account cooldown and hourly
+// budget live in the database (utils/authTokens.js reserve()).
+const verifyByIp = rateLimit({
+  ...base,
+  windowMs: loginWindow(),
+  limit: intEnv('AUTH_VERIFY_MAX', 20),
+  handler: makeHandler('Too many verification attempts. Please wait before trying again.'),
+});
+
+const verifyRequestByIp = rateLimit({
+  ...base,
+  windowMs: forgotWindow(),
+  limit: intEnv('AUTH_VERIFY_REQUEST_IP_MAX', 10),
+  handler: makeHandler('Too many verification email requests. Please wait before trying again.'),
+});
+
+module.exports = { loginByIp, loginByEmail, signupByIp, passwordChange, forgotByIp, resetByIp, verifyByIp, verifyRequestByIp };

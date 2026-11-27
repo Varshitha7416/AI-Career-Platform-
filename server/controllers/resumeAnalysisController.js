@@ -154,14 +154,26 @@ const getAnalyses = async (req, res, next) => {
       limit = Math.min(limit, 100);
     }
 
-    const analyses = await ResumeAnalysis.find({ $and: and })
-      .select('-result -inputHash')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .populate(resumePopulate)
-      .populate(jobPopulate);
+    let page = 1;
+    if (req.query.page !== undefined) {
+      page = parseInt(req.query.page, 10);
+      if (!Number.isFinite(page) || page < 1) return res.status(400).json({ message: 'Invalid page' });
+    }
 
-    res.status(200).json({ count: analyses.length, analyses: analyses.map(toSummary) });
+    const filter = { $and: and };
+    const [analyses, total] = await Promise.all([
+      ResumeAnalysis.find(filter)
+        .select('-result -inputHash')
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(resumePopulate)
+        .populate(jobPopulate),
+      ResumeAnalysis.countDocuments(filter),
+    ]);
+
+    // count/analyses are the original contract; total/page/pages are additive (pagination beyond the first page).
+    res.status(200).json({ count: analyses.length, total, page, pages: Math.max(Math.ceil(total / limit), 1), analyses: analyses.map(toSummary) });
   } catch (error) {
     next(error);
   }
@@ -187,4 +199,4 @@ const deleteAnalysis = async (req, res, next) => {
   }
 };
 
-module.exports = { analyzeResume, getAnalyses, getAnalysisById, deleteAnalysis, toSummary };
+module.exports = { analyzeResume, getAnalyses, getAnalysisById, deleteAnalysis, toSummary, toFull, load };

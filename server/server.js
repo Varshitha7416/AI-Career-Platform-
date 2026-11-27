@@ -19,9 +19,19 @@ if (secretCheck.action === 'exit') {
 if (secretCheck.action === 'warn') {
   console.warn(`SECURITY WARNING: ${secretCheck.reason}. Set a random JWT_SECRET of at least 32 characters (this is fatal when NODE_ENV=production).`);
 }
+const { emailPolicy } = require('./services/email/config');
+const emailCheck = emailPolicy(process.env);
+if (emailCheck.action === 'exit') {
+  console.error(`Refusing to start: ${emailCheck.reason}.`);
+  process.exit(1);
+}
+if (emailCheck.action === 'warn') {
+  console.warn(`EMAIL WARNING: ${emailCheck.reason}.`);
+}
 if (!process.env.GEMINI_API_KEY) {
   console.warn('GEMINI_API_KEY is not set: AI features will return 503.');
 }
+console.log(require('./config/gemini')._manager.startupSummary()); // provider roles and fallback status; never prints keys
 
 connectDB();
 require('./models/Company');
@@ -56,7 +66,22 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/interviews', require('./routes/interviewRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/programs', require('./routes/programRoutes'));
+// Admin program management: declared before the generic /api/admin router (which falls through for unknown paths).
+app.use('/api/admin/programs', require('./routes/adminProgramRoutes'));
+app.use('/api/admin/support', require('./routes/adminSupportRoutes'));
 app.use('/api/contact', require('./routes/contactRoutes'));
+app.use('/api/account', require('./routes/accountRoutes'));
+require('./utils/account/deletion').startSweep(); // finishes interrupted account deletions
+require('./utils/reminders').startSweep(); // poller: turns due application/interview reminders into notifications (docs/29)
+app.use('/api/admin', require('./routes/adminRoutes'));
+// Development-only email outbox viewer: not mounted at all in production or when the outbox transport is not in use.
+// Opt-in (DEV_OUTBOX_ENABLED=true) AND NODE_ENV exactly development/test AND the outbox transport. The per-process access key
+// is printed once here (a development convenience; the key is useless in any other process or after a restart).
+const devOutbox = require('./routes/devOutboxRoutes');
+if (devOutbox.devOutboxAllowed(process.env)) {
+  app.use('/api/dev', devOutbox);
+  console.log(`Dev outbox viewer enabled. Send header X-Dev-Outbox-Key: ${devOutbox.accessKey} (this process only)`);
+}
 
 app.get('/', (req, res) => {
   res.send('AI Career Platform API is running');

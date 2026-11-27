@@ -46,6 +46,8 @@ let seq = 0;
 const newUser = async (tag = 'u', profile) => {
   const email = `${tag}${++seq}.${process.pid}@example.com`;
   assert.equal((await post(null, '/auth/signup', { name: 'Profile Tester', email, password: PW })).status, 201);
+  // Email verification policy (docs/23): applying to jobs needs a verified account.
+  await mongoose.connection.collection('users').updateOne({ email }, { $set: { emailVerified: true, emailVerifiedAt: new Date() } });
   const l = await post(null, '/auth/login', { email, password: PW });
   assert.equal(l.status, 200);
   const u = { email, token: l.body.token, id: l.body.user.id, loginUser: l.body.user };

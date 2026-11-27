@@ -51,6 +51,8 @@ const mkUser = async (key, name, extra = {}) => {
   const email = `${key}.${process.pid}@example.com`;
   let r = await post(null, '/auth/signup', { name, email, password: 'secret12' });
   assert.equal(r.status, 201);
+  // Email verification policy (docs/23): referral requests / referrer actions need a verified account.
+  await mongoose.connection.collection('users').updateOne({ email }, { $set: { emailVerified: true, emailVerifiedAt: new Date() } });
   r = await post(null, '/auth/login', { email, password: 'secret12' });
   assert.equal(r.status, 200);
   U[key] = { id: r.body.user.id, token: r.body.token, email };

@@ -5,6 +5,8 @@ const { signToken } = require('../utils/jwtConfig');
 const { validateName, validateEmail, validatePassword, EMAIL_MAX } = require('../utils/authValidation');
 const { effectiveInterests, searchRoles, roleKey, cleanRole, ROLE_MAX } = require('../utils/roles');
 const P = require('../utils/profileValidation');
+const { revokeAllLinks } = require('../utils/authTokens');
+const { NOTIFICATION_CATEGORIES } = require('../utils/notify');
 
 const plain = (arr) => (Array.isArray(arr) ? arr.map((x) => (x && typeof x.toObject === 'function' ? x.toObject() : x)) : []);
 
@@ -15,6 +17,8 @@ const publicUser = (u) => {
     name: u.name,
     email: u.email,
     role: u.role,
+    emailVerified: u.emailVerified === true,
+    emailVerifiedAt: u.emailVerifiedAt || null,
     createdAt: u.createdAt || null,
     seekingRole: u.seekingRole || '',
     isReferrer: !!u.isReferrer,
@@ -29,6 +33,9 @@ const publicUser = (u) => {
       applications: u.notificationPrefs?.applications !== false,
       interviews: u.notificationPrefs?.interviews !== false,
       referrals: u.notificationPrefs?.referrals !== false,
+      programs: u.notificationPrefs?.programs !== false,
+      reminders: u.notificationPrefs?.reminders !== false,
+      support: u.notificationPrefs?.support !== false,
     },
     phone: u.phone || '',
     location: u.location || '',
@@ -48,14 +55,8 @@ const publicUser = (u) => {
   };
 };
 
-// Promote the configured admin email (if any) so admin access needs no manual DB edits.
-const applyAdminEmail = async (user) => {
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  if (adminEmail && user.email === adminEmail && user.role !== 'admin') {
-    user.role = 'admin';
-    await user.save();
-  }
-};
+// Admin access is NEVER granted from signup, login, profile or an environment variable. The first admin is created offline with
+// `npm run bootstrap:admin` (docs/23); there is no HTTP path that can set `role`.
 
 const BCRYPT_ROUNDS = 12;
 let dummyHashPromise;
@@ -98,9 +99,12 @@ const signup = async (req, res, next) => {
       if (err && err.code === 11000) return res.status(409).json(emailTaken); // lost a race with a concurrent signup
       throw err;
     }
-    await applyAdminEmail(newUser);
 
-    res.status(201).json({ message: 'Account created successfully', userId: newUser._id });
+    res.status(201).json({ message: 'Account created successfully', userId: newUser._id, emailVerificationRequired: true });
+
+    // After responding (best effort, never affects signup): email the verification link. If no transport is configured or
+    // sending fails, the user can request a new link from the app banner.
+    try { await require('./emailVerificationController').issueVerification(newUser); } catch { /* issueVerification never throws; belt and braces */ }
   } catch (error) {
     next(error);
   }
@@ -119,11 +123,9 @@ const login = async (req, res, next) => {
     const user = email.length <= EMAIL_MAX ? await User.findOne({ email }) : null;
     const hash = user ? user.password : await dummyHash();
     const isMatch = await bcrypt.compare(password, hash);
-    if (!user || !isMatch) {
+    if (!user || user.deletedAt || !isMatch) {
       return res.status(401).json({ message: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
     }
-
-    await applyAdminEmail(user);
 
     res.status(200).json({ message: 'Login successful', token: signToken(user), user: publicUser(user) });
   } catch (error) {
@@ -301,7 +303,9 @@ const updateProfile = async (req, res, next) => {
       if (prefs === null || typeof prefs !== 'object' || Array.isArray(prefs)) {
         return fieldError(res, 'notificationPrefs', 'notificationPrefs must be an object');
       }
-      for (const key of ['applications', 'interviews', 'referrals']) {
+      const unknownKey = Object.keys(prefs).find((k) => !NOTIFICATION_CATEGORIES.includes(k));
+      if (unknownKey) return fieldError(res, 'notificationPrefs', `Unknown notification category: ${String(unknownKey).slice(0, 40)}`);
+      for (const key of NOTIFICATION_CATEGORIES) {
         if (prefs[key] === undefined) continue;
         if (typeof prefs[key] !== 'boolean') return fieldError(res, 'notificationPrefs', `notificationPrefs.${key} must be true or false`);
         user.set(`notificationPrefs.${key}`, prefs[key]);
@@ -332,6 +336,7 @@ const updateProfile = async (req, res, next) => {
     }
 
     let newToken;
+    let passwordChanged = false;
     if (newPassword !== undefined && newPassword !== '') {
       if (typeof newPassword !== 'string') return validationError(res, { newPassword: 'New password must be text' });
       const policy = validatePassword(newPassword, { email: user.email, name: user.name });
@@ -351,9 +356,15 @@ const updateProfile = async (req, res, next) => {
       user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
       user.tokenVersion = (user.tokenVersion || 0) + 1; // retires every older token
       newToken = signToken(user);
+      passwordChanged = true;
     }
 
+    // A password change through ANY path kills outstanding password-reset links. Revoked BEFORE the write (so no link works
+    // even for an instant after the new password is live; if the save then fails the user can simply request a new link) and
+    // again after it. Links still in flight carry the old tokenVersion and are refused at use anyway.
+    if (passwordChanged) await revokeAllLinks(user._id, 'password_reset');
     await user.save();
+    if (passwordChanged) await revokeAllLinks(user._id, 'password_reset').catch(() => {});
 
     // A role that is no longer an interest can no longer be a resume's target: un-assign (never delete) those resumes.
     let resumesUnassigned = 0;
@@ -377,4 +388,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { signup, login, getMe, getRoles, updateProfile };
+module.exports = { signup, login, getMe, getRoles, updateProfile, BCRYPT_ROUNDS };

@@ -1,8 +1,10 @@
 const Notification = require('../models/Notification');
+const { materialiseDue } = require('../utils/reminders');
 
 const getNotifications = async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    await materialiseDue({ userId: req.user.id }); // lazily creates this user's due reminders (idempotent, never throws)
     const [notifications, unreadCount] = await Promise.all([
       Notification.find({ user: req.user.id }).sort({ createdAt: -1, _id: -1 }).limit(limit).select('type title message link read createdAt').lean(),
       Notification.countDocuments({ user: req.user.id, read: false }),
