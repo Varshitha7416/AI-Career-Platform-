@@ -23,7 +23,7 @@ Make the job data realistic (real companies, many jobs, cities) and then make th
 ## Final decision
 **Backend**
 - `middleware/auth.js` (`protect`, `requireAdmin`), `middleware/errorHandler.js`, `middleware/validate.js`. All data routes require a Bearer token; controllers use `req.user.id` and filter queries by owner, so other users' records come back as 403/404
-- Job create/update/delete are admin-only (`User.role === 'admin'`, granted automatically to the `ADMIN_EMAIL` account)
+- Job create/update/delete are admin-only (`User.role === 'admin'`, was granted automatically to the `ADMIN_EMAIL` account; that auto-promotion was removed, see docs/23)
 - Jobs: pagination (`page`, `limit`), `GET /jobs/:id`, validation, escaped regex filters
 - New endpoints: `GET /auth/me`, `PUT /auth/profile`, `DELETE /saved-jobs/:jobId`, `DELETE /applications/:id`, `GET /resumes`, `GET /resume-analysis` (+`/:id`), `GET /cover-letters` (+`/:id`), `GET /referrals/mine`, `GET /referrals/incoming`
 - Referrals: seeker comes from the token, custom message, one pending request per referrer, only the referrer can accept/decline/mark referred
