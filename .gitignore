@@ -1,0 +1,7 @@
+# Secrets and local environment files (keep .example templates tracked)
+.env
+.env.*
+!.env.example
+*.log
+node_modules
+dist

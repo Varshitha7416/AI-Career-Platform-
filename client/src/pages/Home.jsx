@@ -1,35 +1,34 @@
-import { Link } from 'react-router-dom';
+import { getUser } from '../utils/auth';
+import SiteFooter from '../components/site/SiteFooter';
+import useHomeData from '../components/home/useHomeData';
+import HomeHero from '../components/home/HomeHero';
+import FeaturesSection from '../components/home/FeaturesSection';
+import ProgressSection from '../components/home/ProgressSection';
+import WhySection from '../components/home/WhySection';
 
-const features = [
-  { name: 'Job Discovery', desc: 'Search and save jobs that match your goals.', path: '/jobs' },
-  { name: 'Dashboard', desc: 'Track your saved jobs and applications.', path: '/dashboard' },
-  { name: 'Resume Analyzer', desc: 'Get AI feedback on your resume, general or job-specific.', path: '/resume' },
-  { name: 'Cover Letter Generator', desc: 'Generate a tailored cover letter in seconds.', path: '/cover-letter' },
-  { name: 'Referrals', desc: 'Find employees willing to refer you.', path: '/referrals' },
-];
-
+// Home: four sections (hero + shortcuts, features, real-data progress, why + contact) and the shared footer.
 function Home() {
-  const user = JSON.parse(localStorage.getItem('user'));
+  const stored = getUser();
+  const { overview, overviewLoading, overviewError, refetchOverview, me, rec, reloadRec } = useHomeData();
+  const name = me?.name || stored?.name || '';
+  const firstName = name.trim().split(/\s+/)[0] || '';
 
   return (
-    <div className="min-h-screen bg-bg px-6 py-10">
-      <h1 className="text-3xl font-bold text-primary mb-2 text-center">
-        Hi, {user?.name?.split(' ')[0] || 'there'} 👋
-      </h1>
-      <p className="text-charcoal text-center mb-10">Welcome back to your AI Career Platform.</p>
-
-      <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-5">
-        {features.map((f) => (
-          <Link
-            key={f.path}
-            to={f.path}
-            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition"
-          >
-            <h2 className="text-lg font-semibold text-charcoal mb-1">{f.name}</h2>
-            <p className="text-sm text-gray-500">{f.desc}</p>
-          </Link>
-        ))}
-      </div>
+    <div className="bg-bg">
+      <HomeHero firstName={firstName} />
+      <FeaturesSection />
+      <ProgressSection
+        overview={overview}
+        loading={overviewLoading}
+        error={overviewError}
+        onRetry={refetchOverview}
+        me={me}
+        stored={stored}
+        rec={rec}
+        onRetryRec={reloadRec}
+      />
+      <WhySection />
+      <SiteFooter />
     </div>
   );
 }

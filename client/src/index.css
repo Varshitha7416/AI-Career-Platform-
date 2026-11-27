@@ -1,10 +1,140 @@
 @import "tailwindcss";
 
+/* `dark:` utilities follow the app theme toggle ([data-theme="dark"] on <html>), not just the OS setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* CareerNest palette: #051F20 #0B2B26 #163832 #235347 #8EB69B #DAF1DE
+   Existing pages use primary / accent / bg / charcoal, so re-pointing those tokens re-themes the whole app. */
 @theme {
-  --color-primary: #4338CA;
-  --color-primary-dark: #3730A3;
-  --color-accent: #14B8A6;
-  --color-bg: #F8FAFC;
-  --color-charcoal: #1E293B;
+  --color-ink: #051F20;
+  --color-forest: #0B2B26;
+  --color-primary: #163832;
+  --color-primary-dark: #0B2B26;
+  --color-accent: #235347;
+  --color-sage: #8EB69B;
+  --color-mint: #DAF1DE;
+  --color-bg: #F1F8F3;
+  --color-charcoal: #051F20;
+
+  /* Sidebar + brand surfaces stay dark forest green in BOTH themes (never remapped in dark mode). */
+  --color-sidebar: #0B2B26;
+  --color-sidebar-deep: #051F20;
+  --color-sidebar-hover: #163832;
+  --color-sidebar-active: #235347;
+  --color-leaf: #DAF1DE;
+  --color-leaf-muted: #8EB69B;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-charcoal);
+}
+
+/* Soft hero background used on the Jobs pages */
+.hero-bg {
+  background:
+    radial-gradient(1200px 400px at 85% -10%, rgba(142, 182, 155, 0.45), transparent 60%),
+    linear-gradient(180deg, #DAF1DE 0%, #E9F5EC 70%, #F1F8F3 100%);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Pages written with their own full-height wrapper should fill the area under the sticky top bar
+   instead of adding an extra 100vh of scroll. */
+main#main > .min-h-screen {
+  min-height: calc(100vh - 4rem);
+}
+
+/* Sidebar panel slide-in; reduced-motion users get no animation */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-panel,
+  .sidebar-backdrop {
+    transition: none !important;
+  }
+}
+
+/* =====================================================================================================
+   DARK THEME  (html[data-theme="dark"], set by ThemeProvider / the inline script in index.html)
+   Semantic tokens are remapped so every page using bg-bg / text-ink / text-primary / border-sage ... follows
+   the theme. `white` itself is NOT remapped (text-white must stay white), so the bg-white utilities are
+   overridden explicitly below. Unlayered rules beat Tailwind's layered utilities.
+   ===================================================================================================== */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  scrollbar-color: #235347 #051F20;
+
+  --color-bg: #051F20;
+  --color-ink: #DAF1DE;
+  --color-charcoal: #DAF1DE;
+  --color-primary: #B7DCC3;   /* headings / links / outline buttons (text on dark) */
+  --color-accent: #8EB69B;    /* accent text on dark */
+  --color-mint: #163832;      /* soft fills */
+  --color-sage: #8EB69B;
+
+  --color-gray-50: #0F332E;
+  --color-gray-100: #123A34;
+  --color-gray-200: #1B4A41;
+  --color-gray-300: #2C5E52;
+  --color-gray-400: #7FA28D;
+  --color-gray-500: #9DBBA8;
+  --color-gray-600: #B6D0BF;
+
+  --color-red-50: #3A1F22;
+  --color-red-100: #4A2327;
+  --color-red-300: #8A3C42;
+  --color-red-600: #FF9DA3;
+  --color-red-700: #FFB3B8;
+  --color-green-100: #1B4B33;
+  --color-green-700: #8EE0A8;
+  --color-amber-50: #3A2E12;
+  --color-amber-100: #4A3A12;
+  --color-amber-700: #F2C66B;
+  --color-teal-100: #134842;
+  --color-teal-700: #7FE0D0;
+}
+
+/* Surfaces */
+html[data-theme="dark"] .bg-white { background-color: #0B2B26; }
+html[data-theme="dark"] .bg-white\/90 { background-color: rgb(11 43 38 / 0.92); }
+html[data-theme="dark"] .bg-white\/80 { background-color: rgb(11 43 38 / 0.8); }
+html[data-theme="dark"] .hover\:bg-white:hover { background-color: #123A34; }
+html[data-theme="dark"] .bg-ink\/50 { background-color: rgb(0 0 0 / 0.6); } /* modal scrims */
+
+/* `primary` is both a text colour and a button background: keep filled buttons dark green with white text */
+html[data-theme="dark"] .bg-primary { background-color: #235347; }
+html[data-theme="dark"] .hover\:bg-primary:hover { background-color: #2F6B5B; }
+html[data-theme="dark"] .bg-primary-dark,
+html[data-theme="dark"] .hover\:bg-primary-dark:hover { background-color: #2F6B5B; }
+html[data-theme="dark"] .bg-accent { background-color: #235347; }
+
+/* Soft hero background */
+html[data-theme="dark"] .hero-bg {
+  background:
+    radial-gradient(1200px 400px at 85% -10%, rgba(35, 83, 71, 0.55), transparent 60%),
+    linear-gradient(180deg, #0B2B26 0%, #082420 70%, #051F20 100%);
+}
+
+/* Form controls (many inputs only set a border, so they would otherwise use the browser's grey) */
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: #0B2B26;
+  color: #DAF1DE;
+  border-color: #2C5E52;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: rgb(218 241 222 / 0.5);
+}
+html[data-theme="dark"] option {
+  background-color: #0B2B26;
+  color: #DAF1DE;
+}
+html[data-theme="dark"] input[type="file"] {
+  color: #B6D0BF;
 }

@@ -2,9 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // EARLY RESET-TOKEN HANDLING. Deliberately the FIRST thing in <head>: it runs before the bundle, before any stylesheet or
+      // font request and before React. On /reset-password it copies the token from the URL fragment into a one-shot,
+      // non-enumerable window property (taken and deleted by src/utils/resetToken.js) and immediately replaces the history
+      // entry with the clean URL. The fragment is never sent to a server; this only shortens how long it sits in the address bar.
+      // Third-party fonts are NOT requested on this page (they are added below for every other page).
+      (function () {
+        var onReset = false;
+        try {
+          // /reset-password and /verify-email links both carry their one-time token in the fragment (same handling, own handoff key).
+          var path = location.pathname.replace(/\/+$/, '');
+          onReset = path === '/reset-password' || path === '/verify-email';
+          if (onReset && location.hash.length > 1) {
+            var m = /(?:^#|&)token=([A-Za-z0-9_-]{20,200})(?:&|$)/.exec(location.hash);
+            var key = path === '/verify-email' ? '__careernestVerifyToken' : '__careernestResetToken';
+            if (m) Object.defineProperty(window, key, { value: m[1], configurable: true, writable: true, enumerable: false });
+            history.replaceState(null, '', location.pathname + location.search);
+          }
+        } catch (e) {}
+        if (onReset) return;
+        try {
+          var add = function (rel, href, cross) {
+            var l = document.createElement('link');
+            l.rel = rel; l.href = href;
+            if (cross) l.crossOrigin = '';
+            document.head.appendChild(l);
+          };
+          add('preconnect', 'https://fonts.googleapis.com');
+          add('preconnect', 'https://fonts.gstatic.com', true);
+          add('stylesheet', 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>CareerNest</title>
+    <meta name="description" content="CareerNest: discover jobs, track applications and get AI help with your resume and cover letters." />
+    <script>
+      // Apply the saved theme before first paint to avoid a light/dark flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('careernest-theme');
+          var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
